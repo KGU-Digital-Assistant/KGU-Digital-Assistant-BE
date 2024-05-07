@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cc9580fb-a61b-46bd-9305-2a86e8c2ee38" name="Changes" comment="init">
-      <change afterPath="$PROJECT_DIR$/venvs/myproj.cmd" afterDir="false" />
-    </list>
+    <list default="true" id="cc9580fb-a61b-46bd-9305-2a86e8c2ee38" name="Changes" comment="Feat: user create &amp; delete" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -20,7 +18,15 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/project/backend/main.py" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 1
@@ -33,13 +39,14 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/digital_assistant/projects&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feature/user&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/digital_assistant/projects/project/backend/pythonProject&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -69,7 +76,9 @@
       <option name="presentableId" value="Default" />
       <updated>1714680189270</updated>
       <workItem from="1714680190324" duration="672000" />
-      <workItem from="1714680901711" duration="8936000" />
+      <workItem from="1714680901711" duration="9526000" />
+      <workItem from="1714839624502" duration="14638000" />
+      <workItem from="1714997104179" duration="19377000" />
     </task>
     <task id="LOCAL-00001" summary="init">
       <option name="closed" value="true" />
@@ -87,7 +96,15 @@
       <option name="project" value="LOCAL" />
       <updated>1714770063664</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Feat: user create &amp; delete">
+      <option name="closed" value="true" />
+      <created>1715099732681</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1715099732681</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -95,6 +112,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="init" />
-    <option name="LAST_COMMIT_MESSAGE" value="init" />
+    <MESSAGE value="Feat: user create &amp; delete" />
+    <option name="LAST_COMMIT_MESSAGE" value="Feat: user create &amp; delete" />
   </component>
 </project>
