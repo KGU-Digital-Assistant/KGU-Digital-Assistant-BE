@@ -2,25 +2,40 @@ import datetime
 
 from pydantic import BaseModel, field_validator, EmailStr
 from pydantic_core.core_schema import FieldValidationInfo
+from enum import Enum
 
+class UserTypeEnum(str, Enum):
+    USER = "USER"
+    TRAINER = "TRAINER"
+    MEMBER = "MEMBER"
+
+class Rank(Enum):
+    BRONZE = "BRONZE"
+    SILVER = "SILVER"
+    GOLD = "GOLD"
+    PLATINUM = "PLATINUM"
+    DIAMOND = "DIAMOND"
+
+    def __str__(self):
+        return self.name
 
 class UserCreate(BaseModel):
-    id: int
     name: str
     nickname: str
+    cellphone: str
     password1: str
     password2: str
-    address: str
-    gender: str
+    gender: bool
     email: EmailStr
-    birthday: datetime.date
+    birth: datetime.date
+
 
     class Config:
-        orm_mode = True
+        from_attributes  = True
         check_fields = False
         arbitrary_types_allowed = True
 
-    @field_validator('name', 'nickname', 'password1', 'password2', 'email', 'gender')
+    @field_validator('name', 'nickname', 'password1', 'password2', 'email')
     def not_empty(cls, v):
         if not v or not v.strip():
             raise ValueError('Username and password cannot be empty')
@@ -32,8 +47,27 @@ class UserCreate(BaseModel):
             raise ValueError('Passwords do not match')
         return v
 
+class UserKakao(BaseModel):
+    name: str
+    email: str
+    external_id: str
+    auth_type: str
+
+class UserUpdate(BaseModel):
+    name: str
+    nickname: str
+    email: EmailStr
+
 
 class Token(BaseModel):
     access_token: str
     token_type: str
-    username: str
+    name: str
+
+class UserSchema(BaseModel):
+    id: int
+    name: str
+    email: str
+
+    class Config:
+        orm_mode = True
