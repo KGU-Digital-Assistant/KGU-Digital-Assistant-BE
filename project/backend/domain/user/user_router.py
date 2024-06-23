@@ -1,7 +1,7 @@
 import requests
 
 from datetime import timedelta, datetime
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Form
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from database import get_db
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import pwd_context
 from models import User
+from domain.user.my_oauth2 import OAuth2PasswordRequestFormWithEmail, OAuth2PasswordBearerWithEmail
 
 config = Config('.env')
 KAKAO_CLIENT_ID = config('KAKAO_CLIENT_ID')
@@ -31,17 +32,18 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
                            db: Session = Depends(get_db)):
 
     # check user and password
-    user = user_crud.get_user(db, form_data.name)
+    # username -> email
+    user = user_crud.get_user_by_email(db, form_data.username)
     if not user or not pwd_context.verify(form_data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect client_id or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     # make access token
     data = {
-        "sub": user.name,
+        "sub": user.email,
         "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }
     access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
@@ -49,8 +51,9 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "username": user.name
+        "username": user.email
     }
+
 
 # 회원가입
 @router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
@@ -61,6 +64,7 @@ def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_
                             detail="이미 존재하는 사용자입니다.")
     user_crud.create_user(db=db, user_create=_user_create)
 
+
 def get_current_user(token: str = Depends(oauth2_scheme),
                      db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -70,16 +74,16 @@ def get_current_user(token: str = Depends(oauth2_scheme),
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        email: str = payload.get("sub")
+        if email is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    else:
-        user = user_crud.get_user(db, username=username)
-        if user is None:
-            raise credentials_exception
-        return user
+    user = user_crud.get_user_by_email(db, email)
+    if user is None:
+        raise credentials_exception
+    return user
+
 
 # 회원 업데이트
 @router.patch("/update", response_model=user_schema.UserUpdate)
@@ -91,17 +95,18 @@ def user_update(user_update: user_schema.UserUpdate,
         raise HTTPException(status_code=404, detail="사용자가 존재하지 않습니다.")
     return user
 
+
 # 회원 탈퇴
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def user_delete(user_id: int,
+def user_delete(current_user: User = Depends(get_current_user),
                 db: Session = Depends(get_db)):
-    user = user_crud.get_user(db, user_id=user_id)
-    if not user:
+    if not current_user:
         raise HTTPException(status_code=404,
                             detail="사용자가 존재하지 않습니다.")
-    db.delete(user)
+    db.delete(current_user)
     db.commit()
     return {"ok": True}
+
 
 # 인가 코드 받기
 @router.get("/kakao/code")
@@ -112,6 +117,7 @@ async def kakao_login_connect():
         status_code=status.HTTP_307_TEMPORARY_REDIRECT
     )
 
+
 @router.get("/kakao/code/login")
 async def kakao_login():
     redirect_uri = "http://localhost:8000/api/user/login/kakao"  # 카카오 로그인 후 리디렉트될 URL
@@ -119,6 +125,7 @@ async def kakao_login():
         url=f"https://kauth.kakao.com/oauth/authorize?client_id={KAKAO_CLIENT_ID}&redirect_uri={redirect_uri}&response_type=code",
         status_code=status.HTTP_307_TEMPORARY_REDIRECT
     )
+
 
 @router.get("/login/kakao/callback")
 async def kakao_callback(code: str, db: Session = Depends(get_db)):
@@ -170,6 +177,7 @@ async def kakao_callback(code: str, db: Session = Depends(get_db)):
 
     return {"token": access_token, "user_data": external_id}
 
+
 # 로그인하기 with KAKAO **
 @router.get("/login/kakao")
 def login_with_kakao(code: str, db: Session = Depends(get_db)):
@@ -206,7 +214,7 @@ def login_with_kakao(code: str, db: Session = Depends(get_db)):
 
     # 액세스 토큰 생성
     data = {
-        "sub": user.name,
+        "sub": user.username,
         "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }
     access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
@@ -214,5 +222,5 @@ def login_with_kakao(code: str, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "username": user.name
+        "username": user.username
     }

@@ -1,43 +1,46 @@
-from sqlalchemy import Column,Integer,ForeignKey,String,Float,DateTime,Text,Boolean
+from sqlalchemy import Column, Integer, ForeignKey, String, DateTime, Boolean
 from sqlalchemy.orm import relationship
-from enum import Enum
 from database import Base
 
-class User(Base): ## 회원
-	__tablename__ = "User"
+class User(Base):  # 회원
+    __tablename__ = "User"
 
-	id = Column(Integer, primary_key=True, nullable=False)
-	name = Column(String, nullable=False)
-	cellphone = Column(String, nullable=False)
-	gender = Column(Boolean, nullable=True) ## 1 남자, 0 여자
-	birth = Column(DateTime, nullable=True)
-	create_date = Column(DateTime, nullable=False) #가입일자
-	nickname = Column(String, nullable=False)
-	rank = Column(String, nullable=False)
-	profile_picture = Column(String, nullable=True)
-	mentor_id = Column(Integer, ForeignKey("Mentor.mentor_id"),nullable=True)
-	email = Column(String, nullable=False)
-	password = Column(String, nullable=False)
-	external_id = Column(String, nullable=True)	# 연동했을때 id
-	auth_type = Column(String, nullable=True)			# 연동 방식 ex)kakao
+    id = Column(Integer, primary_key=True, nullable=False)
+    username = Column(String, nullable=False)
+    cellphone = Column(String, nullable=False)
+    gender = Column(Boolean, nullable=True)  # 1 남자, 0 여자
+    birth = Column(DateTime, nullable=True)
+    create_date = Column(DateTime, nullable=False)  # 가입일자
+    nickname = Column(String, nullable=False)
+    rank = Column(String, nullable=False)
+    profile_picture = Column(String, nullable=True)
+    mentor_id = Column(Integer, ForeignKey("Mentor.id"), nullable=True)
+    email = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+    external_id = Column(String, nullable=True)  # 연동했을 때 id
+    auth_type = Column(String, nullable=True)  # 연동 방식 ex)kakao
 
-class Mentor(Base): ## 멘토
-	__tablename__ = "Mentor"
 
-	id = Column(Integer, primary_key=True)
-	user_id = Column(Integer, ForeignKey("User.id"),primary_key=True)
-	gym = Column(String, nullable=True)
-	FA = Column(Boolean, nullable=True)
-	company_id = Column(Integer, ForeignKey("Company.company_id"), nullable=True)
+class Company(Base):  # 회사(소속헬스장)
+    __tablename__ = "Company"
 
-class Company(Base): ## 회사(소속헬스장)
-	__tablename__ = "Company"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    owner = Column(String, nullable=False)
+    cellphone = Column(String, nullable=False)
+    certificate = Column(Boolean, nullable=True)
 
-	id = Column(Integer, primary_key=True)
-	name = Column(String, nullable=False)
-	owner = Column(String, nullable=False)
-	cellphone = Column(String, nullable=False)
-	certificate = Column(Boolean, nullable=True)
+
+class Mentor(Base):  # 멘토
+    __tablename__ = "Mentor"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("User.id"), unique=True)
+    company_id = Column(Integer, ForeignKey("Company.id"), nullable=True)
+    gym = Column(String, nullable=True)
+    FA = Column(Boolean, nullable=True)
+
+
 
 # class Suggestion(Base): ## 개발자에게 의견제출하는 테이블
 # 	__tablename__ = "Suggestion"

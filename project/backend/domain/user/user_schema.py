@@ -19,6 +19,7 @@ class Rank(Enum):
     def __str__(self):
         return self.name
 
+
 class UserCreate(BaseModel):
     name: str
     nickname: str
@@ -31,14 +32,14 @@ class UserCreate(BaseModel):
 
 
     class Config:
-        from_attributes  = True
+        from_attributes = True
         check_fields = False
         arbitrary_types_allowed = True
 
     @field_validator('name', 'nickname', 'password1', 'password2', 'email')
     def not_empty(cls, v):
         if not v or not v.strip():
-            raise ValueError('Username and password cannot be empty')
+            raise ValueError(v + ' and password cannot be empty')
         return v
 
     @field_validator('password2')
@@ -62,7 +63,7 @@ class UserUpdate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-    name: str
+    username: str
 
 class UserSchema(BaseModel):
     id: int
