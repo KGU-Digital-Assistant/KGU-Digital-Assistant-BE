@@ -1,7 +1,7 @@
 from datetime import datetime
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from domain.user.user_schema import UserCreate, UserUpdate, UserKakao, Rank
+from domain.user.user_schema import UserCreate, UserUpdate, Rank, UserList
 from models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -58,8 +58,14 @@ def get_user(db: Session, user_id: int):
 def get_user_by_external_id(db: Session, external_id: int):
     return db.query(User).filter(User.external_id == external_id).first()
 
+
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
 
+
 def get_user_by_username(db: Session, _username: str):
     return db.query(User).filter(User.username == _username).first()
+
+
+def get_users_by_username(db: Session, username: str):
+    return db.query(User).filter(User.username == username).all()

@@ -5,7 +5,7 @@ from database import get_db
 from domain.Mentor.mentor_crud import create_mentor, update_mentor_gym, mentor_delete, matching_mentor
 from domain.Mentor.mentor_schema import MentorCreate, MentorGym, MenteeSchema
 from models import Mentor, User
-from ..user import user_crud, user_router
+from domain.user import user_crud, user_router
 
 router = APIRouter(
     prefix="/api/mentor",

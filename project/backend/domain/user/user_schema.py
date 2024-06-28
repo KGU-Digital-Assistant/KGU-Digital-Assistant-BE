@@ -1,5 +1,8 @@
 import datetime
 
+from models import User
+from typing import List
+
 from pydantic import BaseModel, field_validator, EmailStr
 from pydantic_core.core_schema import FieldValidationInfo
 from enum import Enum
@@ -67,8 +70,15 @@ class Token(BaseModel):
 
 class UserSchema(BaseModel):
     id: int
-    name: str
+    username: str
     email: str
+
+    class Config:
+        orm_mode = True
+
+
+class UserList(BaseModel):
+    users: List[UserSchema]
 
     class Config:
         orm_mode = True
