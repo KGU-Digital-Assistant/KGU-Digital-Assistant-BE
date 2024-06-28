@@ -1,9 +1,12 @@
+from typing import List
+
 import requests
 
 from datetime import timedelta, datetime
 from fastapi import APIRouter, HTTPException, Depends, Request, Form
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 from sqlalchemy.testing.plugin.plugin_base import logging
 from starlette import status
@@ -224,3 +227,41 @@ def login_with_kakao(code: str, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "username": user.username
     }
+
+
+# username으로 검색해서 리스트 반환
+# 이거 되는지 확인하기
+@router.get("/users/username/{username}", response_model=List[user_schema.UserSchema])
+def get_users_by_username(username: str, db: Session = Depends(get_db)):
+    users = user_crud.get_users_by_username(db, username)
+    if not users:
+        raise HTTPException(status_code=404, detail="Users not found")
+    return users
+
+
+# user id로 1명 반환
+@router.get("/users/{user_id}", response_model=user_schema.UserSchema)
+def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
+    return user_crud.get_user(db=db, user_id=user_id)
+
+
+# 토큰 발급받아 저장하기 !!
+@router.post("/register")
+async def register_token(request: Request, db: Session = Depends(get_db)):
+    data = await request.json()
+    token = data.get('token')
+    user_id = data.get('user_id')
+
+    if not token or not user_id:
+        raise HTTPException(status_code=400, detail="Token and user_id required")
+
+    try:
+        user = db.query(User).filter(User.id == user_id).one()
+        user.fcm_token = token
+        db.commit()
+        return {"message": "Token registered successfully"}
+    except NoResultFound:
+        raise HTTPException(status_code=404, detail="User not found")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
