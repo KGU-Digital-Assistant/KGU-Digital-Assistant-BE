@@ -1,11 +1,15 @@
+from datetime import datetime
+from typing import List
+
 import requests
-from fastapi import APIRouter, HTTPException, Depends, Request, status
+from fastapi import APIRouter, HTTPException, Depends, Request, status, Query, Form
 from sqlalchemy.orm import Session
 from database import get_db
 from domain.Mentor.mentor_crud import create_mentor, update_mentor_gym, mentor_delete, matching_mentor
-from domain.Mentor.mentor_schema import MentorCreate, MentorGym, MenteeSchema
-from models import Mentor, User
+from domain.Mentor import mentor_schema, mentor_crud
+from models import Mentor, User, MealHour, MealDay
 from domain.user import user_crud, user_router
+
 
 router = APIRouter(
     prefix="/api/mentor",
@@ -16,7 +20,7 @@ def get_current_mentor(_user_id: int, db: Session = Depends(get_db)):
 
 # 일반 회원 -> 트레이너가 될 때
 @router.post("/create", status_code=201)
-async def mentor_create(_mentor_create: MentorCreate,
+async def mentor_create(_mentor_create: mentor_schema.MentorCreate,
                         _current_user: User = Depends(user_router.get_current_user),
                         db: Session = Depends(get_db)):
     if not _current_user:
@@ -28,7 +32,7 @@ async def mentor_create(_mentor_create: MentorCreate,
     return {"status": "ok"}
 
 @router.post("/add/user", status_code=201)
-def connect_user_to_mentor(_mentee: MenteeSchema,
+def connect_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
                            _mentor: User = Depends(user_router.get_current_user),
                            db: Session = Depends(get_db)):
     mentee = user_crud.get_user_by_email(db, _mentee.email)
@@ -47,7 +51,7 @@ def connect_user_to_mentor(_mentee: MenteeSchema,
     return {"status": "ok"}
 
 @router.patch("/gym/update", status_code=201)
-def gym_update(_mentor_gym: MentorGym,
+def gym_update(_mentor_gym: mentor_schema.MentorGym,
                _current_user: User = Depends(user_router.get_current_user),
                db: Session = Depends(get_db)):
     if not _current_user:

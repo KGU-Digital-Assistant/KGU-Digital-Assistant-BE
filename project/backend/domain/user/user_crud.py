@@ -56,7 +56,8 @@ def get_user(db: Session, user_id: int):
 
 
 def get_user_by_external_id(db: Session, external_id: int):
-    return db.query(User).filter(User.external_id == external_id).first()
+    user = db.query(User).filter(User.external_id == external_id).first()
+    return user
 
 
 def get_user_by_email(db: Session, email: str):

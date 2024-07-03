@@ -9,24 +9,25 @@ group_join = Table(
     Column('group_id', Integer, ForeignKey('Group.id'), primary_key=True)
 )
 
-class User(Base): ## 회원
+class User(Base):  # 회원
     __tablename__ = "User"
 
-    id = Column(Integer, primary_key=True,autoincrement=True)
-    name = Column(String, nullable=False)
+    id = Column(Integer, primary_key=True, nullable=False)
+    username = Column(String, nullable=False)
     cellphone = Column(String, nullable=False)
-    gender = Column(Boolean, nullable=True) ## 1 남자, 0 여자
-    birth = Column(DateTime, nullable=True)
-    create_date = Column(DateTime, nullable=False) #가입일자
+    gender = Column(Boolean)  # 1 남자, 0 여자
+    birth = Column(DateTime)
+    create_date = Column(DateTime, nullable=False)  # 가입일자
     nickname = Column(String, nullable=False)
-    rank = Column(Float, nullable=False)
-    profile_picture = Column(String, nullable=True)
-    mentor_id = Column(Integer, nullable=True)
-    email = Column(String, nullable=False)
+    rank = Column(String, nullable=False)
+    profile_picture = Column(String)
+    mentor_id = Column(Integer, ForeignKey("Mentor.id"), )
+    email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
-    external_id = Column(String, nullable=True)  # 연동했을때 id
-    auth_type = Column(String, nullable=True)  # 연동 방식 ex)kakao
-    fcm_token = Column(String, nullable=True) #fcm_token
+    external_id = Column(String)  # 연동했을 때 id
+    auth_type = Column(String)  # 연동 방식 ex)kakao
+    fcm_token = Column(String) # fcm 토큰 -> 앱 실행시(?), 회원가입(?)
+    groups = relationship('Group', secondary=group_join, back_populates='users')
 
 class Mentor(Base): ## 멘토
     __tablename__ = "Mentor"

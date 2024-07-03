@@ -82,3 +82,10 @@ class UserList(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class TokenRequest(BaseModel):
+    access_token: str
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
