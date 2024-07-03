@@ -41,3 +41,34 @@ def matching_mentor(mentee: User, _mentor_id: int, db: Session):
     db.refresh(mentee)
 
     return mentee
+
+########################
+def get_Mentor(db: Session, user_id:int):
+    Mentors=db.query(Mentor).filter(Mentor.user_id == user_id).first()
+    return Mentors
+
+def get_Users_name_rank_byMentor(db: Session, user_id:int):
+    Mentors=get_Mentor(db,user_id=user_id)
+    if not Mentors:
+        raise HTTPException(status_code=404,detail="Mentor not found")
+    Users=db.query(User.id, User.name,User.rank).filter(User.mentor_id==Mentors.id).all()
+    return Users
+
+def get_Users_byMentor_name(db: Session, user_id:int, name: str):
+    Mentors=get_Mentor(db,user_id=user_id)
+    Users=db.query(User.id, User.name).filter(User.mentor_id==Mentors.id, User.name == name).all()
+    return Users
+
+def get_cheating_days(db: Session, user_id: int, year: int, month: int):
+    # 필터링할 날짜의 범위 계산
+    start_date = f"{year}-{month:02d}-01"
+    end_date = f"{year}-{month:02d}-31"
+
+    cheating_day = db.query(MealDay.date).filter(
+        MealDay.user_id == user_id,
+        MealDay.cheating >= 1,
+        MealDay.date >= start_date,
+        MealDay.date <= end_date
+    ).all()
+    return [day[0] for day in cheating_day]
+
