@@ -45,3 +45,10 @@ def get_tracks_by_track_name(db: Session, track_name: str, skip: int = 0, limit:
 
 def get_track_by_id(track_id: int, db: Session) -> TrackSchema:
     return db.query(Track).filter(Track.id == track_id).first()
+
+############################################
+def get_Track_byuser_id(db: Session, user_id:int):
+    tracks = db.query(Track).filter(
+        Track.user_id == user_id
+    ).first()
+    return tracks

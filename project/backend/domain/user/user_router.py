@@ -6,7 +6,7 @@ import aiohttp
 import requests
 
 from datetime import timedelta, datetime
-from fastapi import APIRouter, HTTPException, Depends, Request, Form, Header
+from fastapi import APIRouter, UploadFile,File,HTTPException, Depends, Request, Form, Header
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.exc import NoResultFound
@@ -21,8 +21,11 @@ from domain.user import user_crud, user_schema
 from domain.user.user_crud import pwd_context
 from models import User
 from domain.user.my_oauth2 import OAuth2PasswordRequestFormWithEmail, OAuth2PasswordBearerWithEmail
-
 from exceptions import InvalidAuthorizationCode, InvalidToken
+import uuid
+from firebase_config import bucket
+
+
 
 config = Config('.env')
 
@@ -511,3 +514,85 @@ async def register_token(request: Request, db: Session = Depends(get_db)):
 #         request.state.user = user
 #         response = await call_next(request)
 #         return response
+
+#########################################
+
+@router.get("/get/{id}", response_model=user_schema.User)
+def get_id_User(id: int, db: Session = Depends(get_db)):
+    User = user_crud.get_User(db,id=id)
+    if User is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return User ##전체 열 출력
+
+@router.get("/get/{id}/rank", response_model=user_schema.UserRank)
+def get_id_User_rank(id: int, db: Session = Depends(get_db)):
+    rank = user_crud.get_User_rank(db, id=id)
+    if rank is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"rank": rank} ##rank 열만 출력
+
+@router.get("/get/{id}/nickname", response_model=user_schema.Usernickname)
+def get_id_User_nickname(id: int, db: Session = Depends(get_db)):
+    nickname = user_crud.get_User_nickname(db, id=id)
+    if nickname is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"nickname": nickname} ##nickname 열만 출력
+
+@router.get("/get/{id}/name", response_model=user_schema.Username)
+def get_id_User(id: int, db: Session = Depends(get_db)):
+    name = user_crud.get_User_nickname(db, id=id)
+    if name is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"name": name} ##name 열만 출력
+
+@router.post("/upload_profile_picture/{id}")
+async def upload_profile_picture(id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    try:
+        # 사용자 조회
+        user = user_crud.get_User(db,id=id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # 고유한 파일 이름 생성
+        file_id = str(uuid.uuid4())
+        blob = bucket.blob(f"profile_pictures/{file_id}")
+
+        # 파일 업로드
+        blob.upload_from_file(file.file, content_type=file.content_type)
+
+        # 기존 프로필 사진 삭제
+        if user.profile_picture:
+            old_blob = bucket.blob(user.profile_picture)
+            if old_blob.exists():
+                old_blob.delete()
+
+        # 서명된 URL 생성 (URL은 1시간 동안 유효)
+        signed_url = blob.generate_signed_url(expiration=timedelta(hours=1))
+
+        # 데이터베이스에 파일 경로와 URL 저장
+        user.profile_picture = f"profile_pictures/{file_id}"
+        db.commit()
+
+        return {"file_id": file_id, "image_url": signed_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/get_profile_picture/{id}")
+async def get_profile_picture(id: int, db: Session = Depends(get_db)):
+    try:
+        # 사용자 조회
+        user = user_crud.get_User(db,id=id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if not user.profile_picture:
+            raise HTTPException(status_code=404, detail="Profile picture not found")
+
+        # 서명된 URL 생성 (URL은 1시간 동안 유효)
+        blob = bucket.blob(user.profile_picture)
+        signed_url = blob.generate_signed_url(expiration=timedelta(hours=1))
+
+        return {"image_url": signed_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

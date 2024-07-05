@@ -7,7 +7,7 @@ from models import Comment
 from domain.Comment import Comment_schema,Comment_crud
 from domain.MealHour import MealHour_crud
 from firebase_config import send_fcm_notification
-from domain.User.user_crud import get_User,get_User_name
+from domain.user.user_crud import get_User,get_User_name
 from datetime import datetime
 from starlette import status
 

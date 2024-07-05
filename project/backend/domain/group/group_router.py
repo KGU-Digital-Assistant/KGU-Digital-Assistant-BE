@@ -2,12 +2,12 @@ import firebase_admin
 from fastapi import APIRouter, HTTPException, Depends
 from firebase_admin import credentials, messaging
 from sqlalchemy.exc import NoResultFound
-
+from domain.group import group_schema,group_crud
 from sqlalchemy.orm import Session
 from starlette import status
 from starlette.config import Config
 from starlette.responses import JSONResponse
-
+from datetime import datetime
 from domain.group.group_schema import GroupCreate, GroupSchema
 from domain.group import group_crud
 from domain.user import user_router
@@ -102,3 +102,19 @@ def accept_invitation(user_id: int, group_id: int, db: Session = Depends(get_db)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+#########################################
+
+@router.get("/get/{user_id}/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
+def get_Comment_date_user_id_text(user_id: int, daytime: str, db: Session = Depends(get_db)):
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    groups = group_crud.get_Group_bydate(db, user_id=user_id, date=date)
+    if groups is None:
+        raise HTTPException(status_code=404, detail="Comments not found")
+    name=groups.name
+    dday=groups.finish_day - date
+    return {"name": name, "dday":dday} ##name, d-day 열출력

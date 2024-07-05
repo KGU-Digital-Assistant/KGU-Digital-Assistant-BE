@@ -33,3 +33,18 @@ class InviteStatus(Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     DECLINED = "declined"
+
+#########################################
+
+class Group_schema(BaseModel):
+    id: int
+    track_id: int
+    user_id: int
+    name: str
+    start_day: datetime.date
+    finish_day: datetime.date
+
+class Group_name_dday_schema(BaseModel):
+    name: str
+    dday: int
+

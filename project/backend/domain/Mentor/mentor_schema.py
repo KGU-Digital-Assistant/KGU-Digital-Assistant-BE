@@ -1,7 +1,7 @@
 from fastapi.openapi.models import Schema
 
 from pydantic import BaseModel, EmailStr
-
+from typing import Optional,List
 
 class MentorCreate(BaseModel):
     # user_id: int
@@ -14,12 +14,16 @@ class MentorCreate(BaseModel):
         check_fields = False
         arbitrary_types_allowed = True
 
+class MentorGym(BaseModel):
+    gym: str
+
+
+class MenteeSchema(BaseModel):
+    username: str
+    email: EmailStr
+
 ###################
 
-import datetime
-
-from typing import Optional,List
-from pydantic import BaseModel
 
 class Mentor_schema(BaseModel):
     id: int
@@ -51,50 +55,3 @@ class Mentor_get_UserInfo_schema(BaseModel):
     users: List[Users_Info]
 
 
-
-# class UserAllergy(BaseModel):
-#     id: int
-#     milk: int
-#     egg: int
-#     cow: int
-#     pig: int
-#     chicken: int
-#     shrimp: int
-#     fish: int
-#     tomato: int
-#
-# class UserAllergyUpdate(UserAllergy):
-#     id: int
-#     milk: int
-#     egg: int
-#     cow: int
-#     pig: int
-#     chicken: int
-#     shrimp: int
-#     fish: int
-#     tomato: int
-#
-# class UserInfo(BaseModel):
-#     id: int
-#     height: str
-#     weight: str
-#     introduce: str
-#     trainer_id : int
-#
-# class UserInfoUpdate(UserInfo):
-#     id: int
-#     height: str
-#     weight: str
-#     introduce: str
-#     trainer_id: int
-
-
-
-
-class MentorGym(BaseModel):
-    gym: str
-
-
-class MenteeSchema(BaseModel):
-    username: str
-    email: EmailStr

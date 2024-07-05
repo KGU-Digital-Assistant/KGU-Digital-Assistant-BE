@@ -1,7 +1,7 @@
 import datetime
 
 from models import User
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, field_validator, EmailStr
 from pydantic_core.core_schema import FieldValidationInfo
@@ -89,3 +89,31 @@ class TokenRequest(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+#########################################
+
+class User(BaseModel):
+    id: int
+    name: str
+    cellphone: str
+    gender: Optional[bool] = None
+    birth: Optional[datetime.date] = None
+    create_date: datetime.datetime
+    nickname: str
+    rank: float
+    profile_picture: Optional[str] = None
+    mentor_id: Optional[int] = None
+    email: str
+    password: str
+    external_id: Optional[str] = None
+    auth_type: Optional[str] = None
+    fcm_token: Optional[str] =None
+
+class UserRank(BaseModel):
+    rank: str
+
+class Usernickname(BaseModel):
+    nickname: str
+
+class Username(BaseModel):
+    name: str

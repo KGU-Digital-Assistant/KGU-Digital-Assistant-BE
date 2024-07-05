@@ -156,35 +156,3 @@ class Comment(Base): ##댓글
     text = Column(String, nullable=True)
     date = Column(DateTime, nullable=True)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False) ## 댓글 등록자
-
-# class UserAllergy(Base):
-#     __tablename__ = "UserAllergy"
-#
-#     id = Column(Integer, primary_key=True)
-#     milk = Column(Integer, nullable=False)
-#     egg = Column(Integer, nullable=False)
-#     cow = Column(Integer, nullable=False)
-#     pig = Column(Integer, nullable=False)
-#     chicken = Column(Integer, nullable=False)
-#     shrimp = Column(Integer, nullable=False)
-#     fish = Column(Integer, nullable=False)
-#     tomato = Column(Integer, nullable=False)
-#
-# class UserInfo(Base):
-#     __tablename__ = "UserInfo"
-#
-#     id = Column(Integer, primary_key=True)
-#     height = Column(String, nullable=False)
-#     weight = Column(String, nullable=False)
-#     introduce = Column(String, nullable=False)
-#     trainer_id = Column(Integer, ForeignKey("Trainer.id"))
-#
-#
-# class Trainer(Base):
-#     __tablename__ = "Trainer"
-#
-#     id = Column(Integer, primary_key=True)
-#     company = Column(String, nullable=False)
-#     specialized_field = Column(String, nullable=False)
-#     working_place = Column(String, nullable=False)
-#     registration_date = Column(DateTime, nullable=False)

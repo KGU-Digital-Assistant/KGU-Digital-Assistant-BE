@@ -6,9 +6,9 @@ from starlette import status
 
 from database import get_db
 from domain.user import user_router
-from models import Track, User
+from models import Track, User, TrackRoutine
 from domain.track.track_schema import TrackCreate, TrackResponse, TrackSchema, TrackList
-from domain.track import track_crud
+from domain.track import track_crud, track_schema
 
 router = APIRouter(
     prefix="/api/track",
@@ -55,3 +55,45 @@ def get_track_by_name(track_name: str, db: Session = Depends(get_db),
 @router.get("/get/{track_id}", response_model=TrackSchema, status_code=200)
 def get_track_by_id(track_id: int, db: Session = Depends(get_db)):
     return track_crud.get_track_by_id(db=db, track_id=track_id)
+
+
+###################################################
+
+@router.get("/get/{user_id}", response_model=track_schema.Track_schema)
+def get_Track_id(user_id: int, db: Session = Depends(get_db)):
+    tracks = track_crud.get_Track_byuser_id(db, user_id=user_id)
+    if tracks is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return tracks
+
+@router.post("/post/{user_id})", response_model=track_schema.Track_create_schema)##회원일경우
+def post_Track(user_id: int, track: track_schema.Track_create_schema,db:Session=Depends(get_db)):
+    db_track = Track(
+        user_id=user_id,
+        name=track.name,
+        water=track.water,
+        coffee=track.coffee,
+        alcohol=track.alcohol,
+        duration=track.finish_date-track.start_date,
+        track_yn=True,
+        start_date=track.start_date,
+        finish_date=track.finish_date
+    )
+    db.add(db_track)
+    db.commit()
+    db.refresh(db_track)
+
+    for routine in track.routines:
+        db_routine= TrackRoutine(
+            track_id=db_track.id,
+            title=routine.title,
+            food=routine.food,
+            calorie=routine.calorie,
+            week=routine.week,
+            time=routine.time,
+            repeat=routine.repeat
+        )
+        db.add(db_routine)
+
+    db.commit()
+    db.refresh(db_track)

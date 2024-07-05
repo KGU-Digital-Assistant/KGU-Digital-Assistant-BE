@@ -1,9 +1,9 @@
 from datetime import datetime
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-
+from fastapi import HTTPException
 from domain.Mentor.mentor_schema import MentorCreate, MentorGym, MenteeSchema
-from models import Mentor, User
+from models import Mentor, User, MealDay
 
 def create_mentor(mentor_create: MentorCreate, _user_id: int, db: Session):
 
