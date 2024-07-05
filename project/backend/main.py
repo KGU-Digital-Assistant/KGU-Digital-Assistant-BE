@@ -6,6 +6,11 @@ from domain.Mentor import mentor_router
 from domain.user import user_router
 from domain.track import track_router
 from domain.group import group_router
+from domain.Suggestion import Suggestion_router
+from domain.TrackRoutine import TrackRoutine_router
+from domain.MealDay import MealDay_router
+from domain.MealHour import MealHour_router
+from domain.Comment import Comment_router
 
 app = FastAPI()
 
@@ -26,3 +31,8 @@ app.include_router(mentor_router.router)
 app.include_router(company_router.router)
 app.include_router(track_router.router)
 app.include_router(group_router.router)
+app.include_router(Suggestion_router.router)
+app.include_router(MealDay_router.router)
+app.include_router(MealHour_router.router)
+app.include_router(Comment_router.router)
+app.include_router(TrackRoutine_router.router)

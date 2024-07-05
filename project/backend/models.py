@@ -27,7 +27,7 @@ class User(Base):  # 회원
     external_id = Column(String)  # 연동했을 때 id
     auth_type = Column(String)  # 연동 방식 ex)kakao
     fcm_token = Column(String) # fcm 토큰 -> 앱 실행시(?), 회원가입(?)
-    groups = relationship('Group', secondary=group_join, back_populates='users')
+    groups = relationship('Group', secondary='join', back_populates='users')
 
 class Mentor(Base): ## 멘토
     __tablename__ = "Mentor"
@@ -80,7 +80,7 @@ class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인
     name = Column(String, unique=True, nullable=False)
     start_day = Column(DateTime, nullable=False)
     finish_day = Column(DateTime, nullable=False)
-    users = relationship("User", secondary=group_join, back_populates="groups")
+    users = relationship("User", secondary='join', back_populates="groups")
 
 class TrackRoutine(Base): ## 식단트랙 루틴
     __tablename__ = "TrackRoutine"

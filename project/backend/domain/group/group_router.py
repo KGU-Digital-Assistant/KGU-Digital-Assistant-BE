@@ -19,9 +19,6 @@ router = APIRouter(
     prefix="/api/track/group",
 )
 
-config = Config('.env')
-cred = credentials.Certificate(config("FIREBASE_PATH"))
-firebase_admin.initialize_app(cred)
 
 # fcm_api_key = config('FIREBASE_FCM_API_KEY')
 # push_service = FCMNotification(api_key=fcm_api_key)
