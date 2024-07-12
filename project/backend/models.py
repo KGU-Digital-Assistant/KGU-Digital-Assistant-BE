@@ -14,11 +14,11 @@ class User(Base):  # 회원
 
     id = Column(Integer, primary_key=True, nullable=False)
     username = Column(String, nullable=False)
-    cellphone = Column(String, nullable=False)
+    cellphone = Column(String, unique=True, nullable=False)
     gender = Column(Boolean)  # 1 남자, 0 여자
     birth = Column(DateTime)
     create_date = Column(DateTime, nullable=False)  # 가입일자
-    nickname = Column(String, nullable=False)
+    nickname = Column(String, unique=True, nullable=False)
     rank = Column(String, nullable=False)
     profile_picture = Column(String)
     mentor_id = Column(Integer, ForeignKey("Mentor.id"), )
@@ -61,14 +61,14 @@ class Track(Base):  # 식단트랙
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)
-    name = Column(String, unique=True, nullable=False)
-    water = Column(Float)
-    coffee = Column(Float)
-    alcohol = Column(Float)
+    name = Column(String, default="새로운 식단 트랙")
+    water = Column(Float, default=0)
+    coffee = Column(Float, default=0)
+    alcohol = Column(Float, default=0)
     duration = Column(Integer)  # Interval : 일, 시간, 분, 초 단위로 기간을 표현 가능, 정확한 시간의 간격(기간)
-    track_yn = Column(Boolean, nullable=False)  # 트랙 생성자가 이를 삭제하면 남들도 이거 사용 못하게 함
-    start_date = Column(Date, nullable=False)
-    finish_date = Column(Date, nullable=False)
+    track_yn = Column(Boolean, default=True)  # 트랙 생성자가 이를 삭제하면 남들도 이거 사용 못하게 함
+    start_date = Column(Date)
+    finish_date = Column(Date)
     routines = relationship("TrackRoutine", back_populates="track")
 
 class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인 테이블
