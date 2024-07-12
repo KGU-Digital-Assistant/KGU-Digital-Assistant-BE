@@ -1,12 +1,14 @@
 import secrets
-from typing import List, Dict, Optional
+import ssl
+from typing import List, Dict, Optional, Tuple
 from urllib import parse
 
 import aiohttp
+import certifi
 import requests
 
 from datetime import timedelta, datetime
-from fastapi import APIRouter, UploadFile,File,HTTPException, Depends, Request, Form, Header
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Request, Form, Header
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.exc import NoResultFound
@@ -17,6 +19,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, JSONResponse
 from starlette.config import Config
 from database import get_db
+from domain.Mentor import mentor_crud
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import pwd_context
 from models import User
@@ -25,16 +28,17 @@ from exceptions import InvalidAuthorizationCode, InvalidToken
 import uuid
 from firebase_config import bucket
 
-
-
 config = Config('.env')
 
-KAKAO_OAUTH_URL = "https://kauth.kakao.com/oauth/token"
+KAKAO_OAUTH_URL = "https://kauth.kakao.com/oauth"
 KAKAO_CLIENT_ID = config('KAKAO_CLIENT_ID')
 KAKAO_CLIENT_SECRET = config('KAKAO_CLIENT_SECRET')
 KAKAO_REDIRECT_URI = config('KAKAO_REDIRECT_URI')
 KAKAO_API_HOST = "https://kapi.kakao.com"
 KAKAO_USER_ME_ENDPOINT = "/v2/user/me"
+STATE = secrets.token_urlsafe(32)
+
+_verify_uri = "https://kapi.kakao.com/v1/user/access_token_info"
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(config('ACCESS_TOKEN_EXPIRE_MINUTES'))
 REDIRECT_URI = config('REDIRECT_URI')
@@ -75,6 +79,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
     }
     access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
 
+    user_crud.update_external_id(db, user.id, None, None)
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -92,23 +97,95 @@ def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_
     user_crud.create_user(db=db, user_create=_user_create)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme),
+def get_authorization_token(authorization: str = Header(...)) -> str:
+    """
+    access or refresh token을 받기 위한 예제용 Depends 용 함수
+    """
+    scheme, _, param = authorization.partition(" ")
+    if not authorization or scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return param
+
+
+def extract_tokens(authorization: str = Header(...)):
+    parts = authorization.split()
+
+    if len(parts) == 2:
+        if parts[0].lower() == "bearer":
+            return parts[1], None, None, None
+
+    if len(parts) != 6 or parts[0].lower() != "bearer" or parts[2].lower() != "bearer" or parts[4].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return parts[1], parts[3], parts[5]
+
+
+async def refresh_access_token(refresh_token: str) -> Dict:
+    tokens = await _request_post_to(
+        url=f"{KAKAO_OAUTH_URL}/token",
+        payload={
+            "client_id": KAKAO_CLIENT_ID,
+            "client_secret": KAKAO_CLIENT_SECRET,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        },
+    )
+    if tokens is None:
+        raise InvalidToken
+    return tokens
+
+
+
+def get_current_user(tokens: Tuple[str, Optional[str], Optional[str]] = Depends(extract_tokens),
                      db: Session = Depends(get_db)):
+    local_token, kakao_access_token, kakao_refresh_token = tokens
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(local_token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
+
     user = user_crud.get_user_by_email(db, email)
     if user is None:
         raise credentials_exception
+
+    # 카카오 토큰 검증
+    if kakao_access_token is not None:
+
+        # 카카오 액세스 토큰 검증
+        if is_authenticated(kakao_access_token):
+            return user
+        else:
+            if is_authenticated(kakao_refresh_token) is False:  # refresh 토큰도 지났을 경우
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            else:   # access token 만 지났을 경우
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid access token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
     return user
 
 
@@ -135,14 +212,15 @@ def user_delete(current_user: User = Depends(get_current_user),
     return {"ok": True}
 
 
-# 인가 코드 받기 -> 인가 코드는 FrontEnd 에서 받아옴
-# @router.get("/kakao/code")
-# async def kakao_login_connect():
-#     redirect_uri = "http://localhost:8000/api/user/login/kakao/callback"  # 카카오 로그인 후 리디렉트될 URL
-#     return RedirectResponse(
-#         url=f"https://kauth.kakao.com/oauth/authorize?client_id={KAKAO_CLIENT_ID}&redirect_uri={redirect_uri}&response_type=code",
-#         status_code=status.HTTP_307_TEMPORARY_REDIRECT
-#     )
+# 인가 코드 받기 -> 인가 코드는 FrontEnd 에서 받아옴 -> 그냥 내가 받아도 될듯
+@router.get("/kakao/code")
+async def kakao_login_connect():
+    return RedirectResponse(
+        url=f"https://kauth.kakao.com/oauth/authorize?response_type=code&client_id=${KAKAO_CLIENT_ID}&redirect_uri=${KAKAO_REDIRECT_URI}&state=${STATE}",
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT
+    )
+
+
 #
 #
 # @router.get("/kakao/code/login")
@@ -160,27 +238,14 @@ def user_delete(current_user: User = Depends(get_current_user),
 #   }
 # })
 
-def get_authorization_token(authorization: str = Header(...)) -> str:
-    """
-    access or refresh token을 받기 위한 예제용 Depends 용 함수
-    """
-    scheme, _, param = authorization.partition(" ")
-    if not authorization or scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return param
 
-
-async def is_authenticated(self, access_token: str) -> bool:
+async def is_authenticated(access_token: str) -> bool:
     """
     토큰 유효성 검사
     """
-    headers = {self._header_name: f"{self._header_type} {access_token}"}
-    res = await self._request_get_to(
-        url=self._verify_uri,
+    headers = {_header_name: f"{_header_type} {access_token}"}
+    res = await _request_get_to(
+        url=_verify_uri,
         headers=headers,
     )
     return res is not None
@@ -190,13 +255,14 @@ async def login_required(
         access_token: str = Depends(get_authorization_token),
 ):
     """
+    토큰 header 에서 가져오고,
     토큰 인증 된건지 확인
     """
     if not await is_authenticated(access_token):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 
-def get_oauth_login_url() -> str:
+def get_oauth_login_url(state: str) -> str:
     """
     인가 코드 받기
     """
@@ -204,6 +270,7 @@ def get_oauth_login_url() -> str:
         "response_type": "code",
         "client_id": KAKAO_CLIENT_ID,
         "redirect_uri": KAKAO_REDIRECT_URI,
+        "state": state
     }
     query_param = parse.urlencode(params, doseq=True)
 
@@ -212,56 +279,125 @@ def get_oauth_login_url() -> str:
 
 @router.get("/kakao/login")
 async def login():
-    # state = secrets.token_urlsafe(32)
-    login_url = get_oauth_login_url()
+    state = secrets.token_urlsafe(32)
+    login_url = get_oauth_login_url(state)
     return RedirectResponse(login_url)
 
 
-# @router.get("/kakao/get-token")
-# def kakao_get_token(
-#         code: str = Form(...),
-#         client_id: str = Form(default=KAKAO_CLIENT_ID),
-#         client_secret: str = Form(default=KAKAO_CLIENT_SECRET),
-#         redirect_uri: str = Form(default=KAKAO_REDIRECT_URI)
-# ):
-#     """
-#     토큰 발급
-#     """
-#     data = {
-#         "grant_type": "authorization_code",
-#         "client_id": client_id,
-#         "client_secret": client_secret,
-#         "redirect_uri": redirect_uri,
-#         "code": code,
-#     }
-#     headers = {
-#         "Content-Type": "application/x-www-form-urlencoded",
-#     }
-#     response = requests.post(KAKAO_OAUTH_URL, data=data, headers=headers)
-#
-#     if response.status_code != 200:
-#         raise HTTPException(status_code=response.status_code, detail="Failed to get access token")
-#
-#     token_info = response.json()
-#     return JSONResponse(content=token_info)
+@router.get("/kakao/get-token")
+def kakao_get_token(
+        code: str = Form(...),
+        client_id: str = Form(default=KAKAO_CLIENT_ID),
+        client_secret: str = Form(default=KAKAO_CLIENT_SECRET),
+        redirect_uri: str = Form(default=KAKAO_REDIRECT_URI),
+        state: str = None
+):
+    """
+    토큰 발급
+    """
+    data = {
+        "grant_type": "authorization_code",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "code": code,
+        "state": state
+    }
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+    response = requests.post(f"{KAKAO_OAUTH_URL}/token", data=data, headers=headers)
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail="Failed to get access token")
+
+    token_info = response.json()
+    return JSONResponse(content=token_info)
+
+
+def _get_connector_for_ssl() -> aiohttp.TCPConnector:
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    return aiohttp.TCPConnector(ssl=ssl_context)
+
+
+async def _request_get_to(url, headers=None) -> Optional[Dict]:
+    conn = _get_connector_for_ssl()
+    async with aiohttp.ClientSession(connector=conn) as session:
+        async with session.get(url, headers=headers) as resp:
+            return None if resp.status != 200 else await resp.json()
+
+
+async def _request_post_to(url, payload=None) -> Optional[Dict]:
+    conn = _get_connector_for_ssl()
+    async with aiohttp.ClientSession(connector=conn) as session:
+        async with session.post(url, data=payload) as resp:
+            return None if resp.status != 200 else await resp.json()
+
+
+async def get_tokens(code: str, state: str) -> Dict:
+    tokens = await _request_post_to(
+        url=f"{KAKAO_OAUTH_URL}/token",
+        payload={
+            "client_id": KAKAO_CLIENT_ID,
+            "client_secret": KAKAO_CLIENT_SECRET,
+            "grant_type": "authorization_code",
+            "code": code,
+            "state": state,
+        },
+    )
+    if tokens is None:
+        raise InvalidAuthorizationCode
+
+    if tokens.get("access_token") is None or tokens.get("refresh_token") is None:
+        raise InvalidAuthorizationCode
+
+    return tokens
 
 
 @router.get("/login/kakao/callback")
-async def kakao_callback(code: str, state: Optional[str] = None, db: Session = Depends(get_db)):
-    token_response = requests.post(
-        url="https://kauth.kakao.com/oauth/token",
-        data={
-            "grant_type": "authorization_code",
-            "client_id": KAKAO_CLIENT_ID,
-            "client_secret": KAKAO_CLIENT_SECRET,
-            "redirect_uri": KAKAO_REDIRECT_URI,
-            "code": code
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
+async def kakao_callback(code: str, state: Optional[str] = None,
+                         db: Session = Depends(get_db)):
+    token_response = await get_tokens(
+        code=code,
+        state=state
     )
 
-    token_response_data = token_response.json()
-    return {"response": token_response_data}  # 모든 response 반환, 여기 안에 access_token 가지고 이제 verify 할거임, refresh_token도 포함됨
+    access_token = token_response.get("access_token")
+    await login_required(access_token)  # 토큰 검증
+    user_info = await get_user_info(access_token)  # 다른 함수로 빼기
+
+    external_id = user_info.get("id")
+    user_name = user_info.get("nickname")
+    user_email = user_info.get("kakao_account", {}).get("email")
+    user_phone = user_info.get("kakao_account", {}).get("phone_number")
+    user_gender = user_info.get("kakao_account", {}).get("gender")  # 성별 정보 추가
+
+    # 같은 이메일 uesr가 이미 있고 연동되어 있을 경우 경우 -> 로그인
+    # 같은 이메일 user가 있지만 연동 안되어 있을 경우 -> external_id 쓰고 로그인
+    # 같은 이메일 user가 없을 경우 -> 회원가입
+    user = user_crud.get_user_by_email(db, email=user_email)
+    if user is None:
+        return {
+            "success": False,
+            "message": "회원가입 필요",
+            "user_info": user_info,
+        }
+    if user.external_id != external_id:
+        user_crud.update_external_id(db, external_id=external_id, user_id=user.id, _auth_type="kakao")
+
+    # make access token
+    data = {
+        "sub": user.email,
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    }
+    local_access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+
+    return {
+        "access_token": local_access_token,
+        "token_type": "bearer",
+        "username": user_email
+    }
+
     # access_token = token_response_data.get("access_token")
 
     # user_response = requests.get(
@@ -319,32 +455,24 @@ async def kakao_callback(code: str, state: Optional[str] = None, db: Session = D
 #     return {"user_id": user_id}
 
 
+
 @router.post("/kakao/refresh-token")
 def refresh(refresh_token: str = Depends(get_authorization_token)):
     """
     토큰이 만료되면 리프레쉬
     """
-    data = {
-        "grant_type": "refresh_token",
-        "client_id": KAKAO_CLIENT_ID,
-        "client_secret": KAKAO_CLIENT_SECRET,
-        "refresh_token": refresh_token,  #
-    }
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-    response = requests.post(url=KAKAO_OAUTH_URL, data=data, headers=headers)
+    token_response = refresh_access_token(refresh_token=refresh_token)
 
-    if response.status_code != 200:
-        raise HTTPException(status_code=response.status_code, detail="Failed to refresh access token")
-
-    token_info = response.json()
-    return JSONResponse(content=token_info)
+    return {"response": token_response}
 
 
-async def get_user_info(self, access_token: str) -> Dict:
-    headers = {self._header_name: f"{self._header_type} {access_token}"}
-    user_info = await self._request_get_to(url=self._resource_uri, headers=headers)
+_header_name = "Authorization"
+_header_type = "Bearer"
+
+
+async def get_user_info(access_token: str) -> Dict:
+    headers = {_header_name: f"{_header_type} {access_token}"}
+    user_info = await _request_get_to(url=KAKAO_API_HOST + KAKAO_USER_ME_ENDPOINT, headers=headers)
     if user_info is None:
         raise InvalidToken
     return user_info
@@ -355,6 +483,7 @@ async def get_user(
         access_token: str = Depends(get_authorization_token),
 ):
     """
+    받은 access_token으로
     유저 정보 가져오기
     """
     user_info = await get_user_info(access_token=access_token)
@@ -426,7 +555,7 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
     return user_crud.get_user(db=db, user_id=user_id)
 
 
-# 토큰 발급받아 저장하기 !!
+# fcm 토큰 발급받아 저장하기 !!
 @router.post("/register")
 async def register_token(request: Request, db: Session = Depends(get_db)):
     data = await request.json()
@@ -519,37 +648,41 @@ async def register_token(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/get/{id}", response_model=user_schema.User)
 def get_id_User(id: int, db: Session = Depends(get_db)):
-    User = user_crud.get_User(db,id=id)
+    User = user_crud.get_User(db, id=id)
     if User is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return User ##전체 열 출력
+    return User  ##전체 열 출력
+
 
 @router.get("/get/{id}/rank", response_model=user_schema.UserRank)
 def get_id_User_rank(id: int, db: Session = Depends(get_db)):
     rank = user_crud.get_User_rank(db, id=id)
     if rank is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"rank": rank} ##rank 열만 출력
+    return {"rank": rank}  ##rank 열만 출력
+
 
 @router.get("/get/{id}/nickname", response_model=user_schema.Usernickname)
 def get_id_User_nickname(id: int, db: Session = Depends(get_db)):
     nickname = user_crud.get_User_nickname(db, id=id)
     if nickname is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"nickname": nickname} ##nickname 열만 출력
+    return {"nickname": nickname}  ##nickname 열만 출력
+
 
 @router.get("/get/{id}/name", response_model=user_schema.Username)
 def get_id_User(id: int, db: Session = Depends(get_db)):
     name = user_crud.get_User_nickname(db, id=id)
     if name is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"name": name} ##name 열만 출력
+    return {"name": name}  ##name 열만 출력
+
 
 @router.post("/upload_profile_picture/{id}")
 async def upload_profile_picture(id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
-        user = user_crud.get_User(db,id=id)
+        user = user_crud.get_User(db, id=id)
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -582,7 +715,7 @@ async def upload_profile_picture(id: int, file: UploadFile = File(...), db: Sess
 async def get_profile_picture(id: int, db: Session = Depends(get_db)):
     try:
         # 사용자 조회
-        user = user_crud.get_User(db,id=id)
+        user = user_crud.get_User(db, id=id)
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -596,3 +729,37 @@ async def get_profile_picture(id: int, db: Session = Depends(get_db)):
         return {"image_url": signed_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+############################## user setting ################################
+
+
+@router.get("/get", response_model=user_schema.UserProfile)
+async def get_user(db: Session = Depends(get_db),
+                   current_user: User = Depends(get_current_user)):
+    """
+    기능명세서 p.26 프로필 수정 시, 기존 정보 불러올 때
+    """
+    user = user_crud.get_User(db, id=current_user.id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    mentor = mentor_crud.get_User(db, id=current_user.mentor_id)
+
+    return {
+        "profile_picture": user.profile_picture,
+        "name": user.name,
+        "nickname": user.nickname,
+        "mentor_name": mentor.name
+    }
+
+
+@router.patch("/update/profile")
+async def profile_update(_user_profile: user_schema.UserProfile,
+                         db: Session = Depends(get_db),
+                         current_user: User = Depends(get_current_user)):
+    user = user_crud.get_User(db, id=current_user.id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_crud.update_profile(db=db, profile_user=_user_profile, current_user=current_user)

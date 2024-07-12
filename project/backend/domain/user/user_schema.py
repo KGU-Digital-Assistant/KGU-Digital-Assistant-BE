@@ -1,6 +1,6 @@
 import datetime
 
-from models import User
+from models import User, Mentor
 from typing import List, Optional
 
 from pydantic import BaseModel, field_validator, EmailStr
@@ -109,11 +109,21 @@ class User(BaseModel):
     auth_type: Optional[str] = None
     fcm_token: Optional[str] =None
 
+
 class UserRank(BaseModel):
     rank: str
+
 
 class Usernickname(BaseModel):
     nickname: str
 
+
 class Username(BaseModel):
     name: str
+
+
+class UserProfile(BaseModel):
+    profile_picture: str
+    name: str
+    nickname: str
+    mentor_name: Optional[str] = None

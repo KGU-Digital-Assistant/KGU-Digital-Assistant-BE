@@ -2,7 +2,7 @@ from datetime import datetime
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from typing import Optional
-from domain.user.user_schema import UserCreate, UserUpdate, Rank, UserList
+from domain.user.user_schema import UserCreate, UserUpdate, Rank, UserProfile
 from models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -41,11 +41,11 @@ def update_user(db: Session, user_id: int, user_update: UserUpdate):
     return user
 
 
-def update_external_id(db: Session, external_id: int, user_name: str):
-    user = db.query(User).filter(User.username == user_name).first()
+def update_external_id(db: Session, external_id: int, user_id: int, _auth_type: str):
+    user = db.query(User).filter(User.id == user_id).first()
     if user:
         user.external_id = external_id
-        user.auth_type = "kakao"
+        user.auth_type = _auth_type
         db.commit()
         db.refresh(user)
 
@@ -116,3 +116,20 @@ def get_User_name(db: Session, id:int) -> str:
 def get_User_byemail(db: Session, mail: str):
     Users=db.query(User).filter(User.email== mail).first()
     return Users
+
+
+def update_profile(db: Session, profile_user: UserProfile,
+                   current_user: User):
+    current_user.profile_picture = profile_user.profile_picture
+    current_user.username = profile_user.username
+    current_user.nickname = profile_user.nickname
+    current_user.mentor_id = profile_user.mentor.id
+    db.commit()
+    db.refresh(current_user)
+
+
+def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    db_user.access_token = new_access_token
+    db.commit()
+    db.refresh(db_user)
