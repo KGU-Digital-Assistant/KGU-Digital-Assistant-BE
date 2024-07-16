@@ -10,12 +10,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_existing_user(db: Session, user_create: UserCreate):
     return db.query(User).filter(
-        User.email == user_create.email
+        User.cellphone == user_create.cellphone
     ).first()
 
 
 def create_user(db: Session, user_create: UserCreate):
-    db_user = User(username=user_create.name,
+    db_user = User(name=user_create.name,
+                   username=user_create.username,
                    nickname=user_create.nickname,
                    email=user_create.email,
                    cellphone=user_create.cellphone,
@@ -133,3 +134,9 @@ def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
     db_user.access_token = new_access_token
     db.commit()
     db.refresh(db_user)
+
+
+def get_user_by_cellphone(db: Session, _cellphone: str):
+    cellphone = _cellphone.replace('-', '')
+    phone_number = "010" + cellphone[-8:]
+    return db.query(User).filter(User.cellphone==phone_number).first()

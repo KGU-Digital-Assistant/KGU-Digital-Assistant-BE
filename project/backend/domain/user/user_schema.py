@@ -24,7 +24,8 @@ class Rank(Enum):
 
 
 class UserCreate(BaseModel):
-    name: str
+    name: str # 실명
+    username: str # 로그인 아이디
     nickname: str
     cellphone: str
     password1: str
@@ -32,7 +33,6 @@ class UserCreate(BaseModel):
     gender: bool
     email: EmailStr
     birth: datetime.date
-
 
     class Config:
         from_attributes = True
@@ -44,6 +44,18 @@ class UserCreate(BaseModel):
         if not v or not v.strip():
             raise ValueError(v + ' and password cannot be empty')
         return v
+
+    # @field_validator('nickname')
+    # def word_count(cls, v):
+    #     if len(v) > 7:
+    #         raise ValueError(v + ' and nickname cannot be longer than 7 characters')
+    #
+    # @field_validator('password1')
+    # def password_validate(cls, v):
+    #     if (len(v) > 10):
+    #         raise ValueError(v + ' and password1 cannot be longer than 10 characters')
+    #     # 영문 숫자 특수문자 여부 추가 예정
+
 
     @field_validator('password2')
     def passwords_match(cls, v, info: FieldValidationInfo):

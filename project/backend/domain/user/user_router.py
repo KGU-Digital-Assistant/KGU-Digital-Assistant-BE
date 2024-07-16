@@ -33,6 +33,7 @@ config = Config('.env')
 KAKAO_OAUTH_URL = "https://kauth.kakao.com/oauth"
 KAKAO_CLIENT_ID = config('KAKAO_CLIENT_ID')
 KAKAO_CLIENT_SECRET = config('KAKAO_CLIENT_SECRET')
+
 KAKAO_REDIRECT_URI = config('KAKAO_REDIRECT_URI')
 KAKAO_API_HOST = "https://kapi.kakao.com"
 KAKAO_USER_ME_ENDPOINT = "/v2/user/me"
@@ -47,24 +48,23 @@ ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
 
 router = APIRouter(
-    prefix="/api/user",
+    prefix="/user",
 )
-
 
 # 기존 유저와의 연동을 잘 해봐야할듯
 # 카카오 유저랑 기존 유저랑 따로 만들기?
 # 가입 타입으로 access_token을 어떻게 할지 고민하기
 # state 는 빼자
-
 # 토큰 유효기간 지났는지 확인
+
 
 # 로그인
 @router.post("/login", response_model=user_schema.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
                            db: Session = Depends(get_db)):
     # check user and password
-    # username -> email
-    user = user_crud.get_user_by_email(db, form_data.username)
+
+    user = user_crud.get_user_by_username(db, form_data.username)
     if not user or not pwd_context.verify(form_data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -74,7 +74,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
 
     # make access token
     data = {
-        "sub": user.email,
+        "sub": user.username,
         "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }
     access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
@@ -83,7 +83,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "username": user.email
+        "username": user.username
     }
 
 
@@ -115,8 +115,7 @@ def extract_tokens(authorization: str = Header(...)):
     parts = authorization.split()
 
     if len(parts) == 2:
-        if parts[0].lower() == "bearer":
-            return parts[1], None, None, None
+        return None, None
 
     if len(parts) != 6 or parts[0].lower() != "bearer" or parts[2].lower() != "bearer" or parts[4].lower() != "bearer":
         raise HTTPException(
@@ -125,7 +124,7 @@ def extract_tokens(authorization: str = Header(...)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return parts[1], parts[3], parts[5]
+    return parts[3], parts[5]
 
 
 async def refresh_access_token(refresh_token: str) -> Dict:
@@ -143,11 +142,27 @@ async def refresh_access_token(refresh_token: str) -> Dict:
     return tokens
 
 
+# def get_current_user(token: str = Depends(oauth2_scheme),
+#                      db: Session = Depends(get_db)):
+#     credentials_exception = HTTPException(
+#         status_code=status.HTTP_401_UNAUTHORIZED,
+#         detail="Could not validate credentials",
+#         headers={"WWW-Authenticate": "Bearer"},
+#     )
+#     try:
+#         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+#         email: str = payload.get("sub")
+#         if email is None:
+#             raise credentials_exception
+#     except JWTError:
+#         raise credentials_exception
+#     user = user_crud.get_user_by_email(db, email)
+#     if user is None:
+#         raise credentials_exception
+#     return user
 
-def get_current_user(tokens: Tuple[str, Optional[str], Optional[str]] = Depends(extract_tokens),
-                     db: Session = Depends(get_db)):
-    local_token, kakao_access_token, kakao_refresh_token = tokens
 
+def verify_local_token(local_token: str):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -156,36 +171,39 @@ def get_current_user(tokens: Tuple[str, Optional[str], Optional[str]] = Depends(
 
     try:
         payload = jwt.decode(local_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
+        username: str = payload.get("sub")
+        return username
     except JWTError:
-        raise credentials_exception
+        return credentials_exception
 
-    user = user_crud.get_user_by_email(db, email)
-    if user is None:
-        raise credentials_exception
 
-    # 카카오 토큰 검증
-    if kakao_access_token is not None:
+def verify_kakao_token(kakao_token: str):
+    url = "https://kapi.kakao.com/v1/user/access_token_info"
+    headers = {"Authorization": f"Bearer {kakao_token}"}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    return None
 
-        # 카카오 액세스 토큰 검증
-        if is_authenticated(kakao_access_token):
-            return user
-        else:
-            if is_authenticated(kakao_refresh_token) is False:  # refresh 토큰도 지났을 경우
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid refresh token",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            else:   # access token 만 지났을 경우
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid access token",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
 
+def get_current_user(token: str = Depends(oauth2_scheme),
+                    db: Session = Depends(get_db)):
+    # 로컬 토큰 검증
+    username = verify_local_token(token)
+    if username:
+        return user_crud.get_user_by_username(db, username)
+
+
+    # 카카오 토큰 검증 (로컬 토큰이 아니라면)
+    kakao_user_info = verify_kakao_token(token)
+    if kakao_user_info is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="try refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = user_crud.get_user_by_cellphone(db, kakao_user_info.get("phone_number"))
     return user
 
 
@@ -249,7 +267,6 @@ async def is_authenticated(access_token: str) -> bool:
         headers=headers,
     )
     return res is not None
-
 
 async def login_required(
         access_token: str = Depends(get_authorization_token),
@@ -354,7 +371,7 @@ async def get_tokens(code: str, state: str) -> Dict:
     return tokens
 
 
-@router.get("/login/kakao/callback")
+@router.get("/kakao/callback")
 async def kakao_callback(code: str, state: Optional[str] = None,
                          db: Session = Depends(get_db)):
     token_response = await get_tokens(
@@ -375,28 +392,35 @@ async def kakao_callback(code: str, state: Optional[str] = None,
     # 같은 이메일 uesr가 이미 있고 연동되어 있을 경우 경우 -> 로그인
     # 같은 이메일 user가 있지만 연동 안되어 있을 경우 -> external_id 쓰고 로그인
     # 같은 이메일 user가 없을 경우 -> 회원가입
-    user = user_crud.get_user_by_email(db, email=user_email)
+    user = user_crud.get_user_by_cellphone(db, user_phone)
     if user is None:
         return {
             "success": False,
-            "message": "회원가입 필요",
+            "message": "회원 가입 페이지로 이동",
             "user_info": user_info,
+            "phone_number": user_phone
         }
     if user.external_id != external_id:
         user_crud.update_external_id(db, external_id=external_id, user_id=user.id, _auth_type="kakao")
 
-    # make access token
-    data = {
-        "sub": user.email,
-        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    }
-    local_access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
-
     return {
-        "access_token": local_access_token,
+        "access_token": access_token,
         "token_type": "bearer",
-        "username": user_email
+        "user_info": user_info
     }
+
+    # make access token
+    # data = {
+    #     "sub": user.username,
+    #     "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    # }
+    # local_access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    #
+    # return {
+    #     "access_token": local_access_token,
+    #     "token_type": "bearer",
+    #     "username": user.username
+    # }
 
     # access_token = token_response_data.get("access_token")
 
@@ -455,7 +479,6 @@ async def kakao_callback(code: str, state: Optional[str] = None,
 #     return {"user_id": user_id}
 
 
-
 @router.post("/kakao/refresh-token")
 def refresh(refresh_token: str = Depends(get_authorization_token)):
     """
@@ -474,7 +497,7 @@ async def get_user_info(access_token: str) -> Dict:
     headers = {_header_name: f"{_header_type} {access_token}"}
     user_info = await _request_get_to(url=KAKAO_API_HOST + KAKAO_USER_ME_ENDPOINT, headers=headers)
     if user_info is None:
-        raise InvalidToken
+        return None
     return user_info
 
 
