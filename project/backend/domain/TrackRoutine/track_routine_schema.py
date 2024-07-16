@@ -18,3 +18,12 @@ class TrackRoutine_create_schema(BaseModel):
     week: str
     time: str
     repeat: bool
+
+
+class TrackRoutineCreate(BaseModel):
+    title: str
+    food: str
+    calorie: float
+    week: str
+    time: str
+    repeat: bool
