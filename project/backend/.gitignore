@@ -2,6 +2,7 @@
 venvs
 migrations
 .idea
+myapi.db
 
 .ipynb_checkpoints
 .mypy_cache
@@ -19,6 +20,7 @@ log.txt
 Pipfile.lock
 env3.*
 env
+.env
 docs_build
 site_build
 venv
