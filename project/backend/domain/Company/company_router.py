@@ -7,7 +7,7 @@ from starlette import status
 from database import get_db
 
 router = APIRouter(
-    prefix="/api/company",
+    prefix="/company",
 )
 
 

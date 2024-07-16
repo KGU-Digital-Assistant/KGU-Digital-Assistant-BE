@@ -2,12 +2,12 @@ import firebase_admin
 from fastapi import APIRouter, HTTPException, Depends
 from firebase_admin import credentials, messaging
 from sqlalchemy.exc import NoResultFound
-
+from domain.group import group_schema,group_crud
 from sqlalchemy.orm import Session
 from starlette import status
 from starlette.config import Config
 from starlette.responses import JSONResponse
-
+from datetime import datetime
 from domain.group.group_schema import GroupCreate, GroupSchema
 from domain.group import group_crud
 from domain.user import user_router
@@ -16,15 +16,18 @@ from database import get_db
 from pyfcm import FCMNotification
 
 router = APIRouter(
-    prefix="/api/track/group",
+    prefix="/track/group",
 )
 
-config = Config('.env')
-cred = credentials.Certificate(config("FIREBASE_PATH"))
-firebase_admin.initialize_app(cred)
 
 # fcm_api_key = config('FIREBASE_FCM_API_KEY')
 # push_service = FCMNotification(api_key=fcm_api_key)
+
+@router.post("/append")
+async def add_track(user_id: int, group_id: int, db: Session = Depends(get_db)):
+    group_crud.create_invitation(db, user_id, group_id)
+    group_crud.accept_invitation(db=db, user_id=user_id, group_id=group_id)
+
 
 # 그룹 생성
 @router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
@@ -105,3 +108,19 @@ def accept_invitation(user_id: int, group_id: int, db: Session = Depends(get_db)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+#########################################
+
+@router.get("/get/{user_id}/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
+def get_Comment_date_user_id_text(user_id: int, daytime: str, db: Session = Depends(get_db)):
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    groups = group_crud.get_Group_bydate(db, user_id=user_id, date=date)
+    if groups is None:
+        raise HTTPException(status_code=404, detail="Comments not found")
+    name=groups.name
+    dday=groups.finish_day - date
+    return {"name": name, "dday":dday} ##name, d-day 열출력
