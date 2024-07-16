@@ -16,12 +16,18 @@ from database import get_db
 from pyfcm import FCMNotification
 
 router = APIRouter(
-    prefix="/api/track/group",
+    prefix="/track/group",
 )
 
 
 # fcm_api_key = config('FIREBASE_FCM_API_KEY')
 # push_service = FCMNotification(api_key=fcm_api_key)
+
+@router.post("/append")
+async def add_track(user_id: int, group_id: int, db: Session = Depends(get_db)):
+    group_crud.create_invitation(db, user_id, group_id)
+    group_crud.accept_invitation(db=db, user_id=user_id, group_id=group_id)
+
 
 # 그룹 생성
 @router.post("/create", status_code=status.HTTP_204_NO_CONTENT)

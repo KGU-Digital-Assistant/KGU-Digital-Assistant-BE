@@ -3,7 +3,7 @@ from datetime import date
 from fastapi.openapi.models import Schema
 from pydantic import BaseModel
 from sqlalchemy import Interval
-from domain.TrackRoutine.TrackRoutine_schema import  TrackRoutine_create_schema
+from domain.TrackRoutine.track_routine_schema import  TrackRoutine_create_schema
 
 
 class TrackCreate(BaseModel):

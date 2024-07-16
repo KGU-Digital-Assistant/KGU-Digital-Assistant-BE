@@ -11,7 +11,7 @@ from domain.track.track_schema import TrackCreate, TrackResponse, TrackSchema, T
 from domain.track import track_crud, track_schema
 
 router = APIRouter(
-    prefix="/api/track",
+    prefix="/track",
 )
 
 

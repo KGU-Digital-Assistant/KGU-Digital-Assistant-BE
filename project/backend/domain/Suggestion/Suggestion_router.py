@@ -9,7 +9,7 @@ from datetime import datetime
 from starlette import status
 
 router=APIRouter(
-    prefix="/Suggest"
+    prefix="/suggest"
 )
 
 @router.get("/get/{suggest_id}/text", response_model=Suggestion_schema.Suggestion_content_schema)

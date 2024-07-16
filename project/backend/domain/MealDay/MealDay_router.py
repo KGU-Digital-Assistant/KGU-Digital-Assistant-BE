@@ -11,11 +11,11 @@ from datetime import datetime,timedelta
 from firebase_config import bucket
 
 router=APIRouter(
-    prefix="/MealDay"
+    prefix="/mealDay"
 )
 
 @router.get("/get/{user_id}/{daytime}", response_model=List[MealDay_schema.MealDay_schema])
-def get_MealDay_date(user_id: int, daytime: str ,db: Session = Depends(get_db)):
+def get_MealDay_date(user_id: int, daytime: str, db: Session = Depends(get_db)):
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:

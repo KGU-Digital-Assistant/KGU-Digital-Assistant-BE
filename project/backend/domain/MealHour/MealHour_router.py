@@ -13,7 +13,7 @@ import json
 import uuid
 
 router=APIRouter(
-    prefix="/MealHour"
+    prefix="/mealHour"
 )
 
 @router.get("/get/{user_id}/{time}", response_model=MealHour_schema.MealHour_schema)

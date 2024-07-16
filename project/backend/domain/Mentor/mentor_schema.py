@@ -20,7 +20,6 @@ class MentorGym(BaseModel):
 
 class MenteeSchema(BaseModel):
     username: str
-    email: EmailStr
 
 ###################
 

@@ -13,7 +13,8 @@ class User(Base):  # 회원
     __tablename__ = "User"
 
     id = Column(Integer, primary_key=True, nullable=False)
-    username = Column(String, nullable=False)
+    username = Column(String, nullable=False) # 회원가입 ID로 쓸 예정 ( 컬럼 이름은 oauth2 form에 맞춰야해서 고정)
+    name = Column(String, nullable=False) # 실명
     cellphone = Column(String, unique=True, nullable=False)
     gender = Column(Boolean)  # 1 남자, 0 여자
     birth = Column(DateTime)

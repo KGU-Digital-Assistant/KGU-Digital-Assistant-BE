@@ -12,7 +12,7 @@ from domain.user import user_crud, user_router
 
 
 router = APIRouter(
-    prefix="/api/mentor",
+    prefix="/mentor",
 )
 
 def get_current_mentor(_user_id: int, db: Session = Depends(get_db)):
@@ -35,7 +35,7 @@ async def mentor_create(_mentor_create: mentor_schema.MentorCreate,
 def connect_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
                            _mentor: User = Depends(user_router.get_current_user),
                            db: Session = Depends(get_db)):
-    mentee = user_crud.get_user_by_email(db, _mentee.email)
+    mentee = user_crud.get_user_by_username(db, _mentee.username)
     if not mentee:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -44,7 +44,7 @@ def connect_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
     if mentee.mentor_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are already connected to a mentor",
+            detail="You are already connected",
         )
 
     matching_mentor(mentee=mentee, _mentor_id=_mentor.id, db=db)
