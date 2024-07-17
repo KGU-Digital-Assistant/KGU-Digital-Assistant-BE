@@ -696,6 +696,11 @@ def get_id_User_rank(id: int, db: Session = Depends(get_db)):
 
 @router.get("/get/{id}/nickname", response_model=user_schema.Usernickname)
 def get_id_User_nickname(id: int, db: Session = Depends(get_db)):
+    """
+    유저 Nickname 조회 : 11page 1번
+     - 입력예시 : user_id = 1
+     - 출력 : user.nickname
+    """
     nickname = user_crud.get_User_nickname(db, id=id)
     if nickname is None:
         raise HTTPException(status_code=404, detail="User not found")

@@ -101,6 +101,11 @@ def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db
 
 @router.get("/findUser/{id}",response_model=List[mentor_schema.find_User])
 def find_User(id: int, name:str = Query(...), db: Session = Depends(get_db)):
+    """
+    회원들  : 15page 1번
+     - 입력예시 : Mentor.user_id = 1
+     - 출력 : 회원목록[User.id, User.name]
+    """
     Users = mentor_crud.get_Users_byMentor_name(db, user_id=id, name=name)
     if Users is None:
         raise HTTPException(status_code=404, detail="Users not found")
@@ -108,6 +113,11 @@ def find_User(id: int, name:str = Query(...), db: Session = Depends(get_db)):
 
 @router.get("/getUserInfo/{id}/{daytime}", response_model=mentor_schema.Mentor_get_UserInfo_schema)
 def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
+    """
+    회원들리스트 정보(당일 Calorie, 식단내용 등) 조회 : 15page 4번
+     - 입력예시 : user_id = 1, time = 2024-06-01아침
+     - 출력 : 당일 식단게시글[MealHour.time, MealHour.name]
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
@@ -152,6 +162,11 @@ def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
 
 @router.get("/get/{user_id}/{year}/{month}/cheatingday", response_model=List)
 def get_cheating_days(user_id: int, year: int, month: int, db: Session = Depends(get_db)):
+    """
+    회원의 월별 cheating 날짜 조회  : 16page 3-1번
+     - 입력예시 : User.user_id(회원) = 1, year = 2024, month = 07
+     - 출력 : cheating 날짜[2024-07-01,2024-07-06]
+    """
     cheating_day = mentor_crud.get_cheating_days(db, user_id, year, month)
     if cheating_day is None:
         raise HTTPException(status_code=404, detail="No data found")

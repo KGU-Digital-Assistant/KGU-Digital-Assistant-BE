@@ -80,6 +80,11 @@ async def update_MealDay_date_cheating(user_id: int, daytime: str,
 
 @router.get("/get/{user_id}/{daytime}/wca", response_model=meal_day_schema.MealDay_wca_get_schema)
 def get_MealDay_date_wca(user_id: int, daytime: str ,db: Session = Depends(get_db)):
+    """
+    식단일일(MealDay) wca 조회 : 9page 5번
+     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 출력 : MealDay.water, MealDay.coffee, MealDay.alcohol
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
@@ -92,6 +97,10 @@ def get_MealDay_date_wca(user_id: int, daytime: str ,db: Session = Depends(get_d
 @router.patch("/update/{user_id}/{daytime}/wca", status_code=status.HTTP_204_NO_CONTENT)
 def update_Daymeal_date_wca(user_id: int,daytime: str,
                        mealdaily_wca_update: meal_day_schema.Mealday_wca_update_schema, db: Session = Depends(get_db)):
+    """
+    식단일일(MealDay) wca 업뎃 : 9page 5번
+     - 입력예시 : user_id = 1, daytime = 2024-06-01, Json{water=1, coffee=2, alcohol = 5}
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
@@ -107,6 +116,10 @@ def update_Daymeal_date_wca(user_id: int,daytime: str,
 
 @router.post("/post/{user_id}/{daytime}",status_code=status.HTTP_204_NO_CONTENT)
 def post_MealDay_date(user_id: int, daytime: str, db: Session=Depends(get_db)):
+    """
+    식단일일(MealDay) db생성 : 앱실행시(당일날짜로), 13page 1번 (클릭시 생성), track시작시 해당기간에 생성
+     - 입력예시 : user_id = 1, daytime = 2024-06-01
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
@@ -139,6 +152,11 @@ def post_MealDay_date(user_id: int, daytime: str, db: Session=Depends(get_db)):
 
 @router.get("/get/{user_id}/{daytime}/calorie", response_model=meal_day_schema.MealDay_calorie_get_schema)
 def get_MealDay_date_calorie(user_id: int, daytime: str ,db: Session = Depends(get_db)):
+    """
+    식단일일(MealDay) goal, now calorie : 13page 3-1번
+     - 입력예시 : user_id = 1, time = 2024-06-01아침
+     - 출력 : MealDay.goalcaloire, MealDay.nowcaloire
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
@@ -151,6 +169,11 @@ def get_MealDay_date_calorie(user_id: int, daytime: str ,db: Session = Depends(g
 
 @router.get("/get/{id}/{daytime}/track", response_model=meal_day_schema.MealDay_track_today_schema)
 def get_Track_Mealhour(id: int, daytime: str, db: Session = Depends(get_db)):
+    """
+    식단일일(MealDay) 식단게시글(MealHour) 전체조회(track 이용중일떄만) : 13page 2-1번
+     - 입력예시 : user_id = 1, time = 2024-06-01아침
+     - 출력 : 당일 식단게시글[MealHour.name, MealHour.calorie, MealHour.date, MealHour.heart, picture_url, Mealhour.track_goal]
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
@@ -189,6 +212,11 @@ def get_Track_Mealhour(id: int, daytime: str, db: Session = Depends(get_db)):
 
 @router.get("/get/{user_id}/{daytime}/dday_goal_real",response_model=meal_day_schema.MealDay_track_dday_goal_real_schema)
 def get_MealDay_dday_goal_real(id: int, daytime: str, db: Session=Depends(get_db)):
+    """
+    식단일일(MealDay) 모 : 13page 2-1번
+     - 입력예시 : user_id = 1, time = 2024-06-01아침
+     - 출력 : 당일 식단게시글[MealHour.name, MealHour.calorie, MealHour.date, MealHour.heart, picture_url, Mealhour.track_goal]
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:

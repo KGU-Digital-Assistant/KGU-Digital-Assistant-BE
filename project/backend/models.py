@@ -90,7 +90,7 @@ class TrackRoutine(Base): ## 식단트랙 루틴
     __tablename__ = "Track_Routine"
 
     id = Column(Integer, primary_key=True,autoincrement=True)
-    track_id = Column(Integer, ForeignKey("Track.id"),unique=True)
+    track_id = Column(Integer, ForeignKey("Track.id"))
     title = Column(String, nullable=False)
     calorie = Column(Float, nullable=False)
     week = Column(String,nullable=True) ## 요일에 따른 1 2 3 4 5 6 7
@@ -147,6 +147,7 @@ class MealHour(Base): ##식단게시글 (시간대별)
     calorie = Column(Float, nullable=True) ## 섭취칼로리
     unit =Column(String, nullable=True) ##저장단위
     size = Column(Float, nullable=True) ##사이즈
+    track_goal = Column(Boolean, nullable=True)  ##트랙지켯는지 안지켰는지 유무
     daymeal_id = Column(Integer, ForeignKey("Meal_Day.id"), nullable=False)
     __table_args__ = (
         UniqueConstraint('user_id', 'time', name='_user_date_hour_uc'),

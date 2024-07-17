@@ -19,7 +19,7 @@ router=APIRouter(
 def get_Comment_date_user_id_text(user_id: int, time: str, db: Session = Depends(get_db)):
     """
     유저 식단게시(MealHour) 관한 댓글 조회 : 9page 5번
-     - 댓글작성자 User.id, name, text
+     - 입력예시 : user_id = 1, time = 2024-07-01 오후간식
      - 출력 : Comment.user_id, User.name, MealDay.alcohol
     """
     comment = comment_crud.get_Comment(db, user_id=user_id, time=time)
@@ -29,6 +29,10 @@ def get_Comment_date_user_id_text(user_id: int, time: str, db: Session = Depends
 
 @router.post("/post/{user_id}/{time}/{user_id2}",status_code=status.HTTP_204_NO_CONTENT) ## 게시글 주인id, 시간대, 댓글작성자
 async def post_comment(user_id: int, time: str,user_id2: int,text: str = Form(...), db: Session = Depends(get_db)):
+    """
+    유저 식단게시(MealHour) 관한 댓글 입력 : 12page 5-2번
+     - 입력예시 : user_id = 1(식단게시글주인), time = 2024-06-01저녁, text = 맛잇겟다
+    """
     meal_post = meal_hour_crud.get_User_Meal(db,user_id=user_id,time=time)
     if meal_post is None:
         raise HTTPException(status_code=404, detail="Meal post not Found")
