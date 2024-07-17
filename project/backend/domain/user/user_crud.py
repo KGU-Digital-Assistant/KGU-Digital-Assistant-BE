@@ -139,3 +139,34 @@ def get_User_name(db: Session, id:int) -> str:
 def get_User_byemail(db: Session, mail: str):
     Users=db.query(User).filter(User.email== mail).first()
     return Users
+
+def update_profile(db: Session, profile_user: UserProfile,
+                   current_user: User):
+    current_user.profile_picture = profile_user.profile_picture
+    current_user.username = profile_user.username
+    current_user.nickname = profile_user.nickname
+    current_user.mentor_id = profile_user.mentor.id
+    db.commit()
+    db.refresh(current_user)
+
+
+def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    db_user.access_token = new_access_token
+    db.commit()
+    db.refresh(db_user)
+
+
+def get_user_by_cellphone(db: Session, _cellphone: str):
+    cellphone = _cellphone.replace('-', '')
+    phone_number = "010" + cellphone[-8:]
+    return db.query(User).filter(User.cellphone==phone_number).first()
+
+
+def save_fcm_token(db: Session, _user_name: str, _fcm_token: str):
+    db_user = db.query(User).filter(User.username == _user_name).first()
+    if db_user is not None:
+        db_user.fcm_token = _fcm_token
+        db.commit()
+        db.refresh(db_user)
+    return db_user

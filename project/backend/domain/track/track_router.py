@@ -30,9 +30,8 @@ def update_track(_track_id: int,
                  current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     track = track_crud.track_update(db, _track_id, current_user, _track)
-    if (track is None):
+    if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
     return track
 
 
@@ -40,6 +39,9 @@ def update_track(_track_id: int,
 @router.get("/search/{track_name}", response_model=TrackList, status_code=200)
 def get_track_by_name(track_name: str, db: Session = Depends(get_db),
                       page: int = 0, size: int = 10):
+    """
+    이건 안쓸듯
+    """
     track_name.strip() # 앞뒤 공백 제거
     if (len(track_name) < 2):
         raise HTTPException(
