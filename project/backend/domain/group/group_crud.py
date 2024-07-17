@@ -1,6 +1,6 @@
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
 from sqlalchemy.orm import Session
-from models import Group, Track, Invitation, User
+from models import Group, Track, Invitation, User,MealDay
 from fastapi import HTTPException
 from domain.group.group_schema import GroupCreate, InviteStatus
 
@@ -46,11 +46,32 @@ def accept_invitation(db: Session, user_id: int, group_id: int):
     group.users.append(user)
     db.commit()
 
-#########################################
+###########################################
+#현빈
+###########################################
 
 def get_Group_bydate(db: Session, user_id:int, date:date):
-    group_info = db.query(Group).filter(Group.user_id==user_id, Group.start_day>=date, Group.finish_day<=date).first()
+    mealday = db.query(MealDay).filter(MealDay.user_id==user_id,MealDay.date==date).first()
+    if mealday is None:
+        return None
+    group_info = db.query(Group).filter(Group.user_id==user_id, Group.track_id==mealday.track_id,Group.start_day>=date, Group.finish_day<=date).first()
     if group_info is None:
-        raise HTTPException(status_code=404, detail="Group not found")
+        return {"detail" : "group not use today"}
     return group_info
+
+def get_Group_byuserid_track_id(db: Session, user_id:int, track_id:int):
+    groups = db.query(Group).filter(Group.user_id==user_id, Group.track_id==track_id
+                                    ).first()
+    if groups is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return groups
+
+def get_Group_byuserid_track_id_bystartfinishday(db: Session, user_id:int, track_id:int, date: date):
+    date2 = datetime.combine(date, datetime.min.time())
+    groups = db.query(Group).filter(Group.user_id==user_id, Group.track_id==track_id,
+                                    Group.start_day<=date2, Group.finish_day>=date2
+                                    ).first()
+    if groups is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return groups
 

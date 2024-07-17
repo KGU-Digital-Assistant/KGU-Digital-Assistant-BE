@@ -1,5 +1,5 @@
 from datetime import datetime
-from domain.Suggestion.Suggestion_schema import Suggestion_title_schema
+from domain.suggestion.suggestion_schema import Suggestion_title_schema
 from models import Suggestion
 from sqlalchemy.orm import Session
 from fastapi import HTTPException

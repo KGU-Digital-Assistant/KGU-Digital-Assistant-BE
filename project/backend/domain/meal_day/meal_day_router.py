@@ -2,82 +2,106 @@ import datetime
 
 from fastapi import APIRouter,  Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import or_,and_
 from typing import List
 from starlette import status
 from database import get_db
-from domain.MealDay import MealDay_schema, MealDay_crud
-from models import MealDay, MealHour
+from domain.meal_day import meal_day_schema, meal_day_crud
+from domain.group import group_crud
+from domain.meal_hour import meal_hour_crud
+from models import MealDay, MealHour, User,TrackRoutine
 from datetime import datetime,timedelta
 from firebase_config import bucket
 
 router=APIRouter(
-    prefix="/mealDay"
+    prefix="/meal_day"
 )
 
-@router.get("/get/{user_id}/{daytime}", response_model=List[MealDay_schema.MealDay_schema])
-def get_MealDay_date(user_id: int, daytime: str, db: Session = Depends(get_db)):
+@router.get("/get/{user_id}/{daytime}", response_model=List[meal_day_schema.MealDay_schema])
+def get_MealDay_date(user_id: int, daytime: str ,db: Session = Depends(get_db)):
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    MealDaily = MealDay_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+    MealDaily = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
     if not MealDaily:
         raise HTTPException(status_code=404, detail="Meal posting not found")
     return [MealDaily] ##전체 열 출력
 
-@router.get("/get/{user_id}/{daytime}/cheating", response_model=MealDay_schema.MealDay_cheating_get_schema)
+@router.get("/get/{user_id}/{daytime}/cheating", response_model=meal_day_schema.MealDay_cheating_get_schema)
 def get_MealDay_date_cheating(user_id: int, daytime: str ,db: Session = Depends(get_db)):
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    cheating = MealDay_crud.get_MealDay_bydate_cheating(db,user_id=user_id,date=date)
+    cheating = meal_day_crud.get_MealDay_bydate_cheating(db,user_id=user_id,date=date)
     if cheating is None:
         raise HTTPException(status_code=404, detail="Meal posting not found")
     return cheating  ## cheating 열만 출력
 
 @router.patch("/update/{user_id}/{daytime}/cheating", status_code=status.HTTP_204_NO_CONTENT)
 async def update_MealDay_date_cheating(user_id: int, daytime: str,
-                                  mealdaily_cheating_update: MealDay_schema.MealDay_cheating_update_schema,
                                   db: Session = Depends(get_db)):
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    mealcheating = MealDay_crud.get_MealDay_bydate(db, user_id=user_id, date=date)
+    mealcheating = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date)
     if mealcheating is None:
         raise HTTPException(status_code=404, detail="MealDaily not found")
 
-    MealDay_crud.update_cheating(db=db, db_MealPosting_Daily=mealcheating,
-                                           cheating_update=mealdaily_cheating_update)
+    if mealcheating.track_id:
+        user_cheating_count = db.query(User).filter(User.id == mealcheating.user_id).first()
+        if user_cheating_count.cheating_count == 0:
+            return {"detail": " cheating is 0"}
+        else:
+            if mealcheating.cheating == 1:
+                return {"detail": "today already cheating"}
+            if user_cheating_count.cheating_count is not None and user_cheating_count.cheating_count >=1:
+                user_cheating_count.cheating_count -= 1
+                db.commit()
+                db.refresh(user_cheating_count)
+                mealcheating.cheating = 1
+                db.commit()
+                db.refresh(mealcheating)
+                return {"detail": "cheating updated successfully"}
+    else:
+        if mealcheating.cheating == 1:
+            mealcheating.cheating = 0
+            db.commit()
+            db.refresh(mealcheating)
+        else:
+            mealcheating.cheating = 1
+            db.commit()
+            db.refresh(mealcheating)
+        return {"detail": "cheating updated successfully"}
 
-    return {"detail": "cheating updated successfully"}
 
-@router.get("/get/{user_id}/{daytime}/wca", response_model=MealDay_schema.MealDay_wca_get_schema)
+@router.get("/get/{user_id}/{daytime}/wca", response_model=meal_day_schema.MealDay_wca_get_schema)
 def get_MealDay_date_wca(user_id: int, daytime: str ,db: Session = Depends(get_db)):
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    wca = MealDay_crud.get_MealDay_bydate_wca(db,user_id=user_id,date=date)
+    wca = meal_day_crud.get_MealDay_bydate_wca(db,user_id=user_id,date=date)
     if wca is None:
         raise HTTPException(status_code=404, detail="Meal posting not found")
     return wca ## water, coffee, alcohol 열만 출력
 
 @router.patch("/update/{user_id}/{daytime}/wca", status_code=status.HTTP_204_NO_CONTENT)
 def update_Daymeal_date_wca(user_id: int,daytime: str,
-                       mealdaily_wca_update: MealDay_schema.Mealday_wca_update_schema, db: Session = Depends(get_db)):
+                       mealdaily_wca_update: meal_day_schema.Mealday_wca_update_schema, db: Session = Depends(get_db)):
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    mealwca = MealDay_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+    mealwca = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
 
     if mealwca is None:
         raise HTTPException(status_code=404, detail="MealDaily not found")
-    MealDay_crud.update_wca(db=db,db_MealPosting_Daily=mealwca,wca_update=mealdaily_wca_update)
+    meal_day_crud.update_wca(db=db,db_MealPosting_Daily=mealwca,wca_update=mealdaily_wca_update)
 
     return {"detail": "wca updated successfully"}
 
@@ -88,7 +112,7 @@ def post_MealDay_date(user_id: int, daytime: str, db: Session=Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    meal=MealDay_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+    meal=meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
     if meal:
         return
     else:
@@ -113,19 +137,19 @@ def post_MealDay_date(user_id: int, daytime: str, db: Session=Depends(get_db)):
         db.commit()
         db.refresh(new_meal)
 
-@router.get("/get/{user_id}/{daytime}/calorie", response_model=MealDay_schema.MealDay_calorie_get_schema)
+@router.get("/get/{user_id}/{daytime}/calorie", response_model=meal_day_schema.MealDay_calorie_get_schema)
 def get_MealDay_date_calorie(user_id: int, daytime: str ,db: Session = Depends(get_db)):
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    calorie = MealDay_crud.get_MealDay_bydate_calorie(db,user_id=user_id,date=date)
+    calorie = meal_day_crud.get_MealDay_bydate_calorie(db,user_id=user_id,date=date)
     if calorie is None:
         raise HTTPException(status_code=404, detail="Calorie posting not found")
     return calorie ## goal,now calorie 열만 출력
 
 
-@router.get("/get/{id}/{daytime}/track", response_model=MealDay_schema.MealDay_track_today_schema)
+@router.get("/get/{id}/{daytime}/track", response_model=meal_day_schema.MealDay_track_today_schema)
 def get_Track_Mealhour(id: int, daytime: str, db: Session = Depends(get_db)):
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
@@ -151,14 +175,38 @@ def get_Track_Mealhour(id: int, daytime: str, db: Session = Depends(get_db)):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-        meal_info = MealDay_schema.MealDay_track_hour_schema(
+        meal_info = meal_day_schema.MealDay_track_hour_schema(
             name=meal.name,
             calorie=meal.calorie,
             date=meal.date,
             heart=meal.heart,
             picture=signed_url,
-            track_id=meal_today.track_id
+            track_goal=meal.track_goal
         )
         result.append(meal_info)
 
-    return MealDay_schema.MealDay_track_today_schema(mealday=result)
+    return meal_day_schema.MealDay_track_today_schema(mealday=result)
+
+@router.get("/get/{user_id}/{daytime}/dday_goal_real",response_model=meal_day_schema.MealDay_track_dday_goal_real_schema)
+def get_MealDay_dday_goal_real(id: int, daytime: str, db: Session=Depends(get_db)):
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    mealday = meal_day_crud.get_MealDay_bydate(db,user_id=id,date=date)
+    if mealday.track_id is None:
+        return {"detail" : "track not use"}
+
+    group_info = group_crud.get_Group_bydate(db,user_id=id,date=date)
+    dday = group_info.finish_day - date
+
+    weekday_number = date.weekday()
+    weekday_str = ["월", "화", "수", "목", "금", "토", "일"][weekday_number]
+    track_info = db.query(TrackRoutine.time).filter(and_(TrackRoutine.track_id==mealday.track_id,
+                                                          or_(TrackRoutine.date==date,
+                                                              TrackRoutine.week.like(f"{weekday_str}"))))
+    goal_time = List[track_info]
+
+    meal_info = meal_hour_crud.get_User_Meal_all_name(db,user_id=id,time=daytime)
+
+    return {"dday" : dday, "goal" : goal_time, "real" : meal_info}

@@ -3,10 +3,12 @@ from typing import List
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, HTTPException, Depends, Request, Form
 from starlette import status
-
+from datetime import datetime
 from database import get_db
-from domain.user import user_router
+from domain.user import user_router, user_crud
 from models import Track, User, TrackRoutine
+from domain.group import group_crud
+from domain.track_routine import track_routine_crud,track_routine_schema
 from domain.track.track_schema import TrackCreate, TrackResponse, TrackSchema, TrackList
 from domain.track import track_crud, track_schema
 
@@ -59,7 +61,6 @@ def get_track_by_id(track_id: int, db: Session = Depends(get_db)):
 
 ###################################################
 
-
 @router.get("/get/{user_id}", response_model=track_schema.Track_schema)
 def get_Track_id(user_id: int, db: Session = Depends(get_db)):
     tracks = track_crud.get_Track_byuser_id(db, user_id=user_id)
@@ -67,6 +68,62 @@ def get_Track_id(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Track not found")
     return tracks
 
+@router.get("/get/{user_id}/mytracks", response_model=List[track_schema.Track_list_get_schema])
+def get_Track_mylist(user_id: int, db:Session = Depends(get_db)):
+    tracklist = track_crud.get_Track_mine_title_all(db,user_id=user_id)
+    if tracklist is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+        return 0
+    return tracklist
+
+@router.get("/get/{user_id}/sharetracks", response_model=List[track_schema.Track_list_get_schema])
+def get_Track_sharelist(user_id: int, db:Session = Depends(get_db)):
+    tracklist = track_crud.get_Track_share_title_all(db,user_id=user_id)
+    if tracklist is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+        return 0
+    return tracklist
+
+@router.get("/get/{user_id}/{track_id}/Info", response_model=track_schema.Track_get_Info)
+def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
+    tracks= track_crud.get_Track_bytrack_id(db,track_id=track_id)
+    if tracks is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+    username=user_crud.get_User_name(db,id=tracks.user_id)
+    today=datetime.utcnow().date()
+    groups=group_crud.get_Group_bydate(db,user_id=user_id,date=today)
+    if groups:
+        startday=groups.start_day
+        finishday=groups.finish_day
+    else:
+        startday=None
+        finishday=None
+    trackroutins=track_routine_crud.get_TrackRoutine_bytrack_id(db, track_id=track_id)
+    repeat=[]
+    solo=[]
+    for trackroutin in trackroutins:
+        routin_data = track_routine_schema.TrackRoutin_id_title(
+            id=trackroutin.id,
+            title=trackroutin.title,
+            week=trackroutin.week,
+            time=trackroutin.time,
+            date=trackroutin.date,
+            repeat=trackroutin.repeat
+        )
+        if trackroutin.repeat:
+            repeat.append(routin_data)
+        else:
+            solo.append(routin_data)
+
+    return {
+        "track_name": tracks.name,
+        "name": username,
+        "start_day": startday,
+        "finish_day": finishday,
+        "duration": tracks.duration,
+        "repeatroutin": repeat,
+        "soloroutin": solo
+    }
 
 @router.post("/post/{user_id})", response_model=track_schema.Track_create_schema)##회원일경우
 def post_Track(user_id: int, track: track_schema.Track_create_schema,db:Session=Depends(get_db)):
@@ -76,17 +133,16 @@ def post_Track(user_id: int, track: track_schema.Track_create_schema,db:Session=
         water=track.water,
         coffee=track.coffee,
         alcohol=track.alcohol,
-        duration=track.finish_date-track.start_date,
+        duration=track.duration,
         track_yn=True,
-        start_date=track.start_date,
-        finish_date=track.finish_date
+        cheating_count=track.cheating_count
     )
     db.add(db_track)
     db.commit()
     db.refresh(db_track)
 
     for routine in track.routines:
-        db_routine = TrackRoutine(
+        db_routine= TrackRoutine(
             track_id=db_track.id,
             title=routine.title,
             food=routine.food,
@@ -99,3 +155,5 @@ def post_Track(user_id: int, track: track_schema.Track_create_schema,db:Session=
 
     db.commit()
     db.refresh(db_track)
+
+

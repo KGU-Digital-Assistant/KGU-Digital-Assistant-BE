@@ -1,16 +1,16 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from domain.Company import company_router
-from domain.Mentor import mentor_router
+from domain.company import company_router
+from domain.mentor import mentor_router
 from domain.user import user_router, phone_router
 from domain.track import track_router
 from domain.group import group_router
-from domain.Suggestion import Suggestion_router
-from domain.TrackRoutine import track_routine_router
-from domain.MealDay import MealDay_router
-from domain.MealHour import MealHour_router
-from domain.Comment import Comment_router
+from domain.suggestion import suggestion_router
+from domain.track_routine import track_routine_router
+from domain.meal_day import meal_day_router
+from domain.meal_hour import meal_hour_router
+from domain.comment import comment_router
 
 app = FastAPI()
 
@@ -32,8 +32,8 @@ app.include_router(mentor_router.router)
 app.include_router(company_router.router)
 app.include_router(track_router.router)
 app.include_router(group_router.router)
-app.include_router(Suggestion_router.router)
-app.include_router(MealDay_router.router)
-app.include_router(MealHour_router.router)
-app.include_router(Comment_router.router)
+app.include_router(suggestion_router.router)
+app.include_router(meal_day_router.router)
+app.include_router(meal_hour_router.router)
+app.include_router(comment_router.router)
 app.include_router(track_routine_router.router)

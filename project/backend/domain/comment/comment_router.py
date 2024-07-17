@@ -4,27 +4,32 @@ from sqlalchemy.orm import Session
 from database import get_db
 from typing import List
 from models import Comment
-from domain.Comment import Comment_schema,Comment_crud
-from domain.MealHour import MealHour_crud
+from domain.comment import comment_schema,comment_crud
+from domain.meal_hour import meal_hour_crud
 from firebase_config import send_fcm_notification
 from domain.user.user_crud import get_User,get_User_name
 from datetime import datetime
 from starlette import status
 
 router=APIRouter(
-    prefix="/Comment"
+    prefix="/comment"
 )
 
-@router.get("/get/{user_id}/{time}/text", response_model=List[Comment_schema.Comment_id_text])
+@router.get("/get/{user_id}/{time}/text", response_model=List[comment_schema.Comment_id_name_text])
 def get_Comment_date_user_id_text(user_id: int, time: str, db: Session = Depends(get_db)):
-    comment = Comment_crud.get_Comment(db, user_id=user_id, time=time)
+    """
+    유저 식단게시(MealHour) 관한 댓글 조회 : 9page 5번
+     - 댓글작성자 User.id, name, text
+     - 출력 : Comment.user_id, User.name, MealDay.alcohol
+    """
+    comment = comment_crud.get_Comment(db, user_id=user_id, time=time)
     if comment is None:
         raise HTTPException(status_code=404, detail="Comments not found")
     return comment ##user_id, text 열출력(전체 행)
 
 @router.post("/post/{user_id}/{time}/{user_id2}",status_code=status.HTTP_204_NO_CONTENT) ## 게시글 주인id, 시간대, 댓글작성자
 async def post_comment(user_id: int, time: str,user_id2: int,text: str = Form(...), db: Session = Depends(get_db)):
-    meal_post = MealHour_crud.get_User_Meal(db,user_id=user_id,time=time)
+    meal_post = meal_hour_crud.get_User_Meal(db,user_id=user_id,time=time)
     if meal_post is None:
         raise HTTPException(status_code=404, detail="Meal post not Found")
     Users=get_User(db, id=user_id2)

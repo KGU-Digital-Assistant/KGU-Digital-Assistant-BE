@@ -2,7 +2,7 @@ from datetime import datetime
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from domain.Mentor.mentor_schema import MentorCreate, MentorGym, MenteeSchema
+from domain.mentor.mentor_schema import MentorCreate, MentorGym, MenteeSchema
 from models import Mentor, User, MealDay
 
 def create_mentor(mentor_create: MentorCreate, _user_id: int, db: Session):
@@ -42,7 +42,7 @@ def matching_mentor(mentee: User, _mentor_id: int, db: Session):
 
     return mentee
 
-########################
+#####################################
 def get_Mentor(db: Session, user_id:int):
     Mentors=db.query(Mentor).filter(Mentor.user_id == user_id).first()
     return Mentors
@@ -50,7 +50,7 @@ def get_Mentor(db: Session, user_id:int):
 def get_Users_name_rank_byMentor(db: Session, user_id:int):
     Mentors=get_Mentor(db,user_id=user_id)
     if not Mentors:
-        raise HTTPException(status_code=404,detail="Mentor not found")
+        raise HTTPException(status_code=404,detail="mentor not found")
     Users=db.query(User.id, User.name,User.rank).filter(User.mentor_id==Mentors.id).all()
     return Users
 
