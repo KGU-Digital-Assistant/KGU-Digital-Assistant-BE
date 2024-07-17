@@ -5,8 +5,8 @@ import requests
 from fastapi import APIRouter, HTTPException, Depends, Request, status, Query, Form
 from sqlalchemy.orm import Session
 from database import get_db
-from domain.Mentor.mentor_crud import create_mentor, update_mentor_gym, mentor_delete, matching_mentor
-from domain.Mentor import mentor_schema, mentor_crud
+from domain.mentor.mentor_crud import create_mentor, update_mentor_gym, mentor_delete, matching_mentor
+from domain.mentor import mentor_schema, mentor_crud
 from models import Mentor, User, MealHour, MealDay
 from domain.user import user_crud, user_router
 
@@ -63,7 +63,7 @@ def gym_update(_mentor_gym: mentor_schema.MentorGym,
     if not mentor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Mentor not found",
+            detail="mentor not found",
         )
     return {"status": "ok"}
 
@@ -73,7 +73,7 @@ def delete_mentor(cur_user: User = Depends(user_router.get_current_user), db: Se
         return {"status": "ok"}
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail="Mentor not found",
+        detail="mentor not found",
     )
 
 ##############################
@@ -82,14 +82,14 @@ def delete_mentor(cur_user: User = Depends(user_router.get_current_user), db: Se
 def get_id_Mentor(id: int, db: Session = Depends(get_db)):
     Mentors = mentor_crud.get_Mentor(db,user_id=id)
     if Mentors is None:
-        raise HTTPException(status_code=404, detail="Mentor not found")
+        raise HTTPException(status_code=404, detail="mentor not found")
     return Mentors ##전체 열 출력
 
 @router.patch("/addUser/{id}", response_model=mentor_schema.Mentor_add_User_schema) ## mentor의 user.id 입력
 def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db)):
     Mentors=mentor_crud.get_Mentor(db,user_id=id)
     if Mentors is None:
-        raise HTTPException(status_code=404, detail="Mentor not found")
+        raise HTTPException(status_code=404, detail="mentor not found")
     Users =user_crud.get_User_byemail(db,mail=email)
     if Users is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -121,7 +121,7 @@ def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
     date_part=daytime[:10]
 
     for user in Users:
-        # User의 MealHour 정보를 특정 날짜에 맞게 찾습니다.
+        # User의 meal_hour 정보를 특정 날짜에 맞게 찾습니다.
         meal_hours = db.query(MealHour).filter(
                 MealHour.user_id == user.id,
                 MealHour.time.like(f"{date_part}%")
@@ -129,7 +129,7 @@ def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
 
         meal_names = [meal_hour.name for meal_hour in meal_hours]
 
-        # User의 MealDay 정보를 특정 날짜에 맞게 찾습니다.
+        # User의 meal_day 정보를 특정 날짜에 맞게 찾습니다.
         meal_day = db.query(MealDay).filter(
                 MealDay.user_id == user.id,
                 MealDay.date == date

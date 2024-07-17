@@ -63,6 +63,7 @@ class UserCreate(BaseModel):
             raise ValueError('Passwords do not match')
         return v
 
+
 class UserKakao(BaseModel):
     name: str
     email: str
@@ -102,6 +103,13 @@ class TokenRequest(BaseModel):
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
+
+class UserProfile(BaseModel):
+    profile_picture: str
+    name: str
+    nickname: str
+    mentor_name: Optional[str] = None
+
 #########################################
 
 class User(BaseModel):
@@ -120,22 +128,14 @@ class User(BaseModel):
     external_id: Optional[str] = None
     auth_type: Optional[str] = None
     fcm_token: Optional[str] =None
-
+    cheating_count: Optional[int] = None
 
 class UserRank(BaseModel):
     rank: str
 
-
 class Usernickname(BaseModel):
     nickname: str
-
 
 class Username(BaseModel):
     name: str
 
-
-class UserProfile(BaseModel):
-    profile_picture: str
-    name: str
-    nickname: str
-    mentor_name: Optional[str] = None

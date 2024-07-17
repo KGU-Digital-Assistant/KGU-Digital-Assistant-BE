@@ -1,24 +1,25 @@
 import os
 from typing import List
 from datetime import datetime, timedelta
-from models import MealDay, MealHour
+from models import MealDay, MealHour, TrackRoutine
 from fastapi import APIRouter, Form,File,Depends, HTTPException,UploadFile
 from sqlalchemy.orm import Session
+from sqlalchemy import or_,and_
 from starlette import status
 from database import get_db
-from domain.MealHour import MealHour_schema,MealHour_crud
-from domain.MealDay import  MealDay_crud
+from domain.meal_hour import meal_hour_schema,meal_hour_crud
+from domain.meal_day import  meal_day_crud
 from firebase_config import bucket
 import json
 import uuid
 
 router=APIRouter(
-    prefix="/mealHour"
+    prefix="/meal_hour"
 )
 
-@router.get("/get/{user_id}/{time}", response_model=MealHour_schema.MealHour_schema)
+@router.get("/get/{user_id}/{time}", response_model=meal_hour_schema.MealHour_schema)
 def get_MealHour_date(user_id: int, time:str, db: Session = Depends(get_db)):
-    User_Meal = MealHour_crud.get_User_Meal(db,user_id=user_id,time=time)
+    User_Meal = meal_hour_crud.get_User_Meal(db,user_id=user_id,time=time)
     if User_Meal is None:
         raise HTTPException(status_code=404, detail="Meal not found")
     return User_Meal  ## 전체 열 출력
@@ -27,7 +28,7 @@ def get_MealHour_date(user_id: int, time:str, db: Session = Depends(get_db)):
 async def get_mealhour_picture(id: int, time: str, db: Session = Depends(get_db)):
     try:
         # 사용자 조회
-        mealhour = MealHour_crud.get_User_Meal(db,user_id=id,time=time)
+        mealhour = meal_hour_crud.get_User_Meal(db,user_id=id,time=time)
         if mealhour is None:
             raise HTTPException(status_code=404, detail="Mealhour not found")
 
@@ -71,7 +72,7 @@ async def upload_food(file: UploadFile = File(...)):
 
 @router.delete("/remove/{user_id}/{time}")
 async def remove_meal(user_id: int, time:str,db:Session = Depends(get_db)):
-     meal = MealHour_crud.get_User_Meal(db,user_id=user_id,time=time)
+     meal = meal_hour_crud.get_User_Meal(db,user_id=user_id,time=time)
      if meal is None:
          raise HTTPException(status_code=404, detail="Meal not found")
 
@@ -93,6 +94,7 @@ async def remove_meal(user_id: int, time:str,db:Session = Depends(get_db)):
 async def register_meal(user_id: int, time: str, file_path: str = Form(...), food_info: str = Form(...),text:str = Form(...), db: Session = Depends(get_db)):
 
     date_part = time[:10]
+    time_part = time[11:]
     try:
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
@@ -129,10 +131,24 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
         calorie=food_info_dict.get("calorie", 0.0),
         unit=food_info_dict.get("unit","gram"),
         size=food_info_dict.get("size", 0.0),
+        track_goal=None,
         daymeal_id=daymeal_id
     )
 
     daily_post = plus_daily_post(db, user_id, new_food)
+
+    mealtoday = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date)
+    weekday_number = date.weekday()
+    weekday_str = ["월", "화", "수", "목", "금", "토", "일"][weekday_number]
+    tracktitle = db.query(TrackRoutine.title).filter(and_(TrackRoutine.track_id==mealtoday.track_id,
+                                                                              TrackRoutine.time.like(f"{time_part}"),
+                                                                                or_(TrackRoutine.week.like(f"{weekday_str}"),
+                                                                                    TrackRoutine.date==date_part)
+                                                                              )).first()
+
+    goal = False
+    if food_info_dict.get("name","") in tracktitle:
+        goal=True
 
     add_food = MealHour(
         user_id=user_id,
@@ -148,6 +164,7 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
         calorie=food_info_dict.get("calorie", 0.0),
         unit=food_info_dict.get("unit", "gram"),
         size=food_info_dict.get("size", 0.0),
+        track_goal=goal,
         daymeal_id=daily_post.id
     )
     db.add(add_food)
@@ -182,7 +199,7 @@ async def remove_temp_meal(file_path: str = Form(...)):
 
 @router.patch("/update/{user_id}/{daytime}/gram", status_code=status.HTTP_204_NO_CONTENT)
 def update_meal_gram(user_id: int,time: str, size: float = Form(...), db: Session = Depends(get_db)):
-    mealgram = MealHour_crud.get_User_Meal(db,user_id=user_id,time=time)
+    mealgram = meal_hour_crud.get_User_Meal(db,user_id=user_id,time=time)
     if mealgram is None:
         raise HTTPException(status_code=404, detail="MealHourly not found")
 
@@ -212,7 +229,7 @@ def plus_daily_post(db: Session, user_id: int, new_food: MealHour):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    daily_post = MealDay_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+    daily_post = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
 
     if daily_post:
         # 기존 레코드 업데이트
@@ -233,7 +250,7 @@ def minus_daily_post(db: Session, user_id: int,new_food: MealHour):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    daily_post = MealDay_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+    daily_post = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
     if daily_post is None:
         raise HTTPException(status_code=404, detail="User not found")
     if daily_post:
@@ -248,9 +265,9 @@ def minus_daily_post(db: Session, user_id: int,new_food: MealHour):
     db.refresh(daily_post)
     return daily_post
 
-@router.get("/get/{user_id}/{daytime}/daymeal", response_model=List[MealHour_schema.MealHour_daymeal_get_schema])
+@router.get("/get/{user_id}/{daytime}/daymeal", response_model=List[meal_hour_schema.MealHour_daymeal_get_schema])
 def get_MealHour_date_all(user_id: int, daytime:str, db: Session = Depends(get_db)):
-    User_Meal = MealHour_crud.get_User_Meal_all_name_time(db,user_id=user_id,time=daytime)
+    User_Meal = meal_hour_crud.get_User_Meal_all_name_time(db,user_id=user_id,time=daytime)
     if User_Meal is None:
         raise HTTPException(status_code=404, detail="Comments not found")
     return User_Meal  ## TIME, NAME 열출력(전체 행) ##time에 날짜만입력
@@ -258,7 +275,7 @@ def get_MealHour_date_all(user_id: int, daytime:str, db: Session = Depends(get_d
 
 @router.patch("update/{user_id}/{time}/heart", status_code=status.HTTP_204_NO_CONTENT)
 def update_MealHour_heart(user_id: int, time: str, db:Session=Depends(get_db)):
-    User_Meal = MealHour_crud.get_User_Meal(db, user_id=user_id, time=time)
+    User_Meal = meal_hour_crud.get_User_Meal(db, user_id=user_id, time=time)
     if User_Meal is None:
         raise HTTPException(status_code=404, detail="User_Meal not found")
     if User_Meal.heart == False:
@@ -281,9 +298,25 @@ def update_MealHour_heart(user_id: int, time: str, db:Session=Depends(get_db)):
 
     return User_Meal
 
-@router.get("/get/{user_id}/{daytime}/daymeal_time", response_model=List[MealHour_schema.MealHour_daymeal_time_get_schema])
+@router.get("/get/{user_id}/{daytime}/daymeal_time", response_model=List[meal_hour_schema.MealHour_daymeal_time_get_schema])
 def get_MealHour_date_all(user_id: int, daytime:str, db: Session = Depends(get_db)):
-    User_Meal = MealHour_crud.get_User_Meal_all_time(db,user_id=user_id,time=daytime)
+    User_Meal = meal_hour_crud.get_User_Meal_all_time(db,user_id=user_id,time=daytime)
     if User_Meal is None:
         raise HTTPException(status_code=404, detail="Comments not found")
     return User_Meal  ## TIME ##time에 날짜만입력
+
+@router.get("/get/{user_id}/{time}/track", response_model=meal_hour_schema.MealHour_track_get_schema)
+def get_MealHour_track_goal(user_id: int, time:str, db:Session =Depends(get_db)):
+    mealhour=meal_hour_crud.get_User_Meal(user_id=user_id,time=time,db=db)
+    return mealhour.track_goal
+
+@router.patch("/update/{user_id}/{time}/track", status_code=status.HTTP_204_NO_CONTENT)
+def update_Mealhour_track_goal(user_id:int, time:str, db:Session=Depends(get_db)):
+    mealhour=meal_hour_crud.get_User_Meal(user_id=user_id,time=time,db=db)
+    if mealhour.track_goal == True:
+        mealhour.track_goal = False
+    else:
+        mealhour.track_goal = True
+    db.commit()
+    db.refresh(mealhour)
+    return {"detail" : "track_goal updated successfully"}

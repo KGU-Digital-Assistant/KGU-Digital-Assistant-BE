@@ -19,7 +19,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, JSONResponse
 from starlette.config import Config
 from database import get_db
-from domain.Mentor import mentor_crud
+from domain.mentor import mentor_crud
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import pwd_context
 from models import User
@@ -685,10 +685,14 @@ async def register_token(request: Request, db: Session = Depends(get_db)):
 #         response = await call_next(request)
 #         return response
 
-#########################################
-
+###############################################################
+## 현빈제작
+###############################################################
 @router.get("/get/{id}", response_model=user_schema.User)
 def get_id_User(id: int, db: Session = Depends(get_db)):
+    """
+
+    """
     User = user_crud.get_User(db, id=id)
     if User is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -697,6 +701,11 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
 
 @router.get("/get/{id}/rank", response_model=user_schema.UserRank)
 def get_id_User_rank(id: int, db: Session = Depends(get_db)):
+    """
+    유저랭크 조회 : 9page 3번 (현재 보류)
+     - 입력예시 : user_id = 1
+     - 출력 : user.rank
+    """
     rank = user_crud.get_User_rank(db, id=id)
     if rank is None:
         raise HTTPException(status_code=404, detail="User not found")

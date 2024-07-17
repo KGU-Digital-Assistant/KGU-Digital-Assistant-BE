@@ -10,7 +10,8 @@ class Comment(BaseModel):
     date: datetime.datetime
     user_id: int
 
-class Comment_id_text(BaseModel):
+class Comment_id_name_text(BaseModel):
     user_id: int
+    name: str
     text: str
 
