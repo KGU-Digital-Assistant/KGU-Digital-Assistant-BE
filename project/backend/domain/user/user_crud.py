@@ -140,3 +140,12 @@ def get_user_by_cellphone(db: Session, _cellphone: str):
     cellphone = _cellphone.replace('-', '')
     phone_number = "010" + cellphone[-8:]
     return db.query(User).filter(User.cellphone==phone_number).first()
+
+
+def save_fcm_token(db: Session, _user_name: str, _fcm_token: str):
+    db_user = db.query(User).filter(User.username == _user_name).first()
+    if db_user is not None:
+        db_user.fcm_token = _fcm_token
+        db.commit()
+        db.refresh(db_user)
+    return db_user

@@ -111,6 +111,24 @@ def get_authorization_token(authorization: str = Header(...)) -> str:
     return param
 
 
+@router.post("/regist/fcm-token")
+def regist_fcm_token(_fcm_token: str, _user_name: str, db: Session = Depends(get_db)):
+    """
+    fcm 토큰을 클라이언트(프론트)에서 발급받아서 서버에 저장
+    회원가입하고 바로 해줘야함
+    """
+
+    user = user_crud.save_fcm_token(db, _user_name, _fcm_token)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="user is not exist",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return {"status": "ok"}
+
+
+
 def extract_tokens(authorization: str = Header(...)):
     parts = authorization.split()
 
