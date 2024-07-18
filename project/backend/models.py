@@ -160,3 +160,15 @@ class Comment(Base): ##댓글
     text = Column(String, nullable=True)
     date = Column(DateTime, nullable=True)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False) ## 댓글 등록자
+
+
+class MentorInvite(Base):
+    __tablename__ = 'MentorInvite'
+
+    id = Column(Integer, primary_key=True, index=True)
+    mentee_id = Column(Integer, ForeignKey('User.id'))
+    mentor_id = Column(Integer, ForeignKey('User.id'))
+    status = Column(String, default='pending')  # 'pending', 'accepted', 'rejected'
+
+    mentee = relationship("User", foreign_keys=[mentee_id])
+    mentor = relationship("User", foreign_keys=[mentor_id])

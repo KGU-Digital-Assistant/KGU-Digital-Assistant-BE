@@ -1,6 +1,6 @@
 from datetime import timedelta, date, datetime
 from sqlalchemy.orm import Session
-from models import Group, Track, Invitation, User,MealDay
+from models import Group, Track, Invitation, User, MealDay
 from fastapi import HTTPException
 from domain.group.group_schema import GroupCreate, InviteStatus
 

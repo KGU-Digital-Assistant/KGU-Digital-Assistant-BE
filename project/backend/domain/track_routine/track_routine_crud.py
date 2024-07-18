@@ -41,9 +41,14 @@ def delete_all(db, track_id):
         db.commit()
         db.refresh(routine)
 
+
+def get_routine_by_routine_id(db: Session, routine_id: int):
+    return db.query(TrackRoutine).filter(TrackRoutine.id==routine_id).first()
+
 #############################################
 
-def get_TrackRoutine_bytrack_id(db: Session, track_id:int):
+
+def get_track_routine_by_track_id(db: Session, track_id:int):
     trackroutines = db.query(TrackRoutine).filter(
         TrackRoutine.track_id==track_id
     ).all()
@@ -53,3 +58,16 @@ def get_trackRoutine_days(db: Session, user_id: int, track_id: int, start_day:da
 
 
     return
+
+
+def update_routine(_routine_id: int, _routine: track_routine_schema.TrackRoutineCreate, db: Session):
+    db_routine = db.query(TrackRoutine).filter(TrackRoutine.id==_routine_id).first()
+    db_routine.time = _routine.time
+    db_routine.title = _routine.title
+    db_routine.calorie = _routine.calorie
+    db_routine.food = _routine.food
+    db_routine.week = _routine.week
+    db_routine.repeat = _routine.repeat
+    db.commit()
+    db.refresh(db_routine)
+

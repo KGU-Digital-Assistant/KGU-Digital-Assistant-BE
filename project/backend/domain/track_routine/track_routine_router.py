@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from database import get_db
 from typing import List
+
+from domain.track_routine.track_routine_schema import TrackRoutineSchema
 from models import TrackRoutine
 from domain.track_routine import track_routine_schema, track_routine_crud
 from domain.track import track_crud
@@ -16,7 +18,7 @@ router=APIRouter(
     prefix="/track/routine"
 )
 
-@router.get("/get/{track_id}", response_model=track_routine_schema.TrackRoutine_schema)
+@router.get("/get/{track_id}", response_model=track_routine_schema.TrackRoutineSchema)
 def get_TrackRoutine_track_id(track_id: int, db: Session = Depends(get_db)):
     track_routines = track_routine_crud.get_TrackRoutine_by_track_id(db,track_id=track_id)
     if track_routines is None:
@@ -47,13 +49,40 @@ def delete_TrackRoutine(track_id: int, db: Session = Depends(get_db)):
 
     track_routine_crud.delete_all(db, track_id)
 
+
+@router.patch("/update/{routine_id}")
+def update_track_routine(routine_id: int,
+                         _routine: track_routine_schema.TrackRoutineCreate,
+                         db: Session = Depends(get_db)):
+    routine = track_routine_crud.get_routine_by_routine_id(db=db, routine_id=routine_id)
+    if routine is None:
+        raise HTTPException(status_code=404, detail="Routine does not exist")
+    track_routine_crud.update_routine(_routine=_routine, _routine_id=routine_id, db=db)
+
+    return {"status": "ok"}
+
+
+@router.get("/get/{routine_id}", response_model=TrackRoutineSchema)
+def get_track_routine(routine_id: int, db: Session = Depends(get_db)):
+    """
+    routine 하나 반환
+    """
+    routine = track_routine_crud.get_routine_by_routine_id(db=db, routine_id=routine_id)
+    if routine is None:
+        raise HTTPException(status_code=404, detail="Routine does not exist")
+    return routine
+
+
 ####################################################
-@router.get("/get/{track_id}", response_model=List[track_routine_schema.TrackRoutine_schema])
+
+
+@router.get("/get/{track_id}", response_model=List[track_routine_schema.TrackRoutineSchema])
 def get_TrackRoutine_track_id_all(track_id: int, db: Session = Depends(get_db)):
-    trackroutines = track_routine_crud.get_TrackRoutine_bytrack_id(db,track_id=track_id)
+    trackroutines = track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
     if trackroutines is None:
         raise HTTPException(status_code=404, detail="TrackRoutine not found")
     return [trackroutines]
+
 
 @router.get("/get/{user_id}/{time}",response_model=track_routine_schema.TrackRoutine_naemcalorie_schema)
 def get_TrackRoutine_track_title_calorie(user_id: int, time: str, db: Session=Depends(get_db)):

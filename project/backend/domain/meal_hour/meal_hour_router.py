@@ -175,7 +175,7 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
 #    mealtime = time[-2:]
 #    mentor_id = db.query(User.mentor_id).filter(User.id==user_id).first()
 #    if mentor_id:
-#        mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).first()
+#        mentor_user_id=db.query(mentor.user_id).filter(mentor.id==mentor_id).first()
 #        if mentor_user_id:
 #            data = {
 #                "user_id": user_id,
@@ -290,7 +290,7 @@ def update_MealHour_heart(user_id: int, time: str, db:Session=Depends(get_db)):
 #    if User_Meal.heart == True:
 #        mentor_id = db.query(User.mentor_id).filter(User.id==user_id).first()
 #        if mentor_id:
-#            mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).first()
+#            mentor_user_id=db.query(mentor.user_id).filter(mentor.id==mentor_id).first()
 #            if mentor_user_id:
 #                mealtime = time[-2:]
 #                mentor_name=user_crud.get_User_name(db,mentor_user_id)

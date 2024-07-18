@@ -3,10 +3,11 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from typing import Optional
 from domain.user.user_schema import UserCreate, UserUpdate, Rank, UserProfile
-from models import User
+from models import User, Invitation
+from firebase_admin import messaging
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def get_existing_user(db: Session, user_create: UserCreate):
     return db.query(User).filter(
@@ -170,3 +171,34 @@ def save_fcm_token(db: Session, _user_name: str, _fcm_token: str):
         db.commit()
         db.refresh(db_user)
     return db_user
+
+
+def send_push_invite(fcm_token: str, title: str, body: str):
+    """
+    fcm 메시지 생성
+    """
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        token=fcm_token
+    )
+
+    response = messaging.send(message)
+    return response
+
+
+def invitation_respond(invitation_id: int, response: str, db: Session, _mentee_id: int):
+    invitation = db.query(Invitation).filter(Invitation.id == invitation_id).first()
+    invitation.status = response.lower()
+    db.commit()
+
+    if response.lower() == "accepted":
+        mentee = db.query(User).filter(User.id == _mentee_id).first()
+        mentee.mentor_id = invitation.mentor.id
+        db.commit()
+
+
+
+

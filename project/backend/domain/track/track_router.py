@@ -100,7 +100,7 @@ def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
     else:
         startday=None
         finishday=None
-    trackroutins=track_routine_crud.get_TrackRoutine_bytrack_id(db, track_id=track_id)
+    trackroutins=track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
     repeat=[]
     solo=[]
     for trackroutin in trackroutins:
