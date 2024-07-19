@@ -103,18 +103,32 @@ def get_track_all_list(user_id: int, db:Session = Depends(get_db)):
 
 @router.get("/get/{user_id}/{track_id}/Info", response_model=track_schema.Track_get_Info)
 def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
+    """
+    트랙상세보기 : 23page 0번
+     - 입력예시 : user_id = 1, track_id = 2
+     - 출력 : Track.name, User.name, Group.start_date, Group.finish_date, Track.duration, Count(트랙사용중인사람수), [TrackRoutin(반복)],[TrackRoutin(단독)]
+    """
     tracks= track_crud.get_Track_bytrack_id(db,track_id=track_id)
     if tracks is None:
         raise HTTPException(status_code=404, detail="Track not found")
     username=user_crud.get_User_name(db,id=tracks.user_id)
     today=datetime.utcnow().date()
-    groups=group_crud.get_Group_bydate(db,user_id=user_id,date=today)
-    if groups:
-        startday=groups.start_day
-        finishday=groups.finish_day
+    #트랙을 사용중인 그룹 회원 수
+    groups_count=group_crud.get_group_by_date_track_id_all(db,date=today,track_id=track_id)
+    if not groups_count:
+        count = 0
+    else:
+        count = len(groups_count)
+    #그룹 정보여부
+    group_one=group_crud.get_group_by_date_track_id(db,user_id=user_id,date=today,track_id=track_id)
+    if group_one and group_one is not None:
+        group, cheating_count, user_id2 =group_one
+        startday = group.start_day
+        finishday = group.finish_day
     else:
         startday=None
         finishday=None
+
     trackroutins=track_routine_crud.get_TrackRoutine_bytrack_id(db, track_id=track_id)
     repeat=[]
     solo=[]
@@ -138,6 +152,7 @@ def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
         "start_day": startday,
         "finish_day": finishday,
         "duration": tracks.duration,
+        "count" : count,
         "repeatroutin": repeat,
         "soloroutin": solo
     }

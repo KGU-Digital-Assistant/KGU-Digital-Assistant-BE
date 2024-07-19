@@ -102,3 +102,15 @@ def get_group_by_user_id_all(db: Session, user_id: int):
     )
     return result if result else []
 
+def get_group_by_date_track_id_all(db: Session, date: date, track_id: int):
+    result = (
+        db.query(Group, Participation.c.cheating_count, Participation.c.user_id)
+        .join(Participation, Group.id == Participation.c.group_id)
+        .filter(
+            Group.start_day <= date,
+            Group.finish_day >= date,
+            Group.track_id == track_id
+        )
+        .all()
+    )
+    return result if result else None

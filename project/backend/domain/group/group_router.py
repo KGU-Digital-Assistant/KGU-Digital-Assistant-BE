@@ -140,11 +140,16 @@ def get_track_name_dday_byDate(user_id: int, daytime: str, db: Session = Depends
             dday = (date - group.start_day).days + 1
     return {"name": track_name, "dday":dday} ##name, d-day 열출력
 
-@router.get("/get/{track_id}/name", response_model=group_schema.Group_get_track_name_schema)
+@router.get("/get/{user_id}/{track_id}/name", response_model=group_schema.Group_get_track_name_schema)
 def get_track_name_before_startGroup(user_id: int, track_id, db:Session = Depends(get_db)):
+    """
+    트랙 시작전 사용중이였던 Track.name(old) / Track.name(new) 조회 : 23page 1-1번, 23page 1-2번
+     - 입력예시 : user_id = 1, track_id = 14
+     - 출력 : Track.name(old), Track.name(new)
+    """
     date = datetime.utcnow().date()
     mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
-    if mealtoday.track_id:
+    if mealtoday and mealtoday.track_id:
         trackoldrow=track_crud.get_Track_bytrack_id(db,track_id=mealtoday.track_id)
         trackold = trackoldrow.name
     else:
