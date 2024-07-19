@@ -2,14 +2,14 @@ import datetime
 
 from fastapi import APIRouter,  Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_,and_
+from sqlalchemy import or_,and_, update
 from typing import List
 from starlette import status
 from database import get_db
 from domain.meal_day import meal_day_schema, meal_day_crud
 from domain.group import group_crud
 from domain.meal_hour import meal_hour_crud
-from models import MealDay, MealHour, User,TrackRoutine
+from models import MealDay, MealHour, User,TrackRoutine, Participation
 from datetime import datetime,timedelta
 from firebase_config import bucket
 
@@ -30,6 +30,11 @@ def get_MealDay_date(user_id: int, daytime: str ,db: Session = Depends(get_db)):
 
 @router.get("/get/{user_id}/{daytime}/cheating", response_model=meal_day_schema.MealDay_cheating_get_schema)
 def get_MealDay_date_cheating(user_id: int, daytime: str ,db: Session = Depends(get_db)):
+    """
+    식단일일(MealDay) cheating 여부 조회 : 9page 4-1번
+     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 출력 : MealDay.cheating
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
@@ -39,9 +44,41 @@ def get_MealDay_date_cheating(user_id: int, daytime: str ,db: Session = Depends(
         raise HTTPException(status_code=404, detail="Meal posting not found")
     return cheating  ## cheating 열만 출력
 
+@router.get("/get/{user_id}/{daytime}/cheating_count", response_model=meal_day_schema.MealDay_cheating_count_get_schema)
+def get_MealDay_date_cheating_count(user_id: int, daytime: str, db: Session = Depends(get_db)):
+    """
+    식단일일(MealDay) cheating 갯수 조회 : 9page 4-2번
+     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 출력 : Participation.cheating
+    """
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    mealcheating = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date)
+    if mealcheating is None:
+        raise HTTPException(status_code=404, detail="MealDaily not found")
+
+    if mealcheating.track_id is None:
+        return {"cheating_count": 9999}
+
+    group_participation = group_crud.get_group_by_date_track_id(db, user_id=user_id, date=date,
+                                                                track_id=mealcheating.track_id)
+    if group_participation is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    group, cheating_count, user_id2 = group_participation
+    return {"cheating_count": cheating_count, "user_id2": user_id2}
+
 @router.patch("/update/{user_id}/{daytime}/cheating", status_code=status.HTTP_204_NO_CONTENT)
 async def update_MealDay_date_cheating(user_id: int, daytime: str,
                                   db: Session = Depends(get_db)):
+    """
+    식단일일(MealDay) cheating 갯수 차감 : 9page 4-3번
+     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 결과 : Participation.cheating_count - 1
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
@@ -52,20 +89,30 @@ async def update_MealDay_date_cheating(user_id: int, daytime: str,
         raise HTTPException(status_code=404, detail="MealDaily not found")
 
     if mealcheating.track_id:
-        user_cheating_count = db.query(User).filter(User.id == mealcheating.user_id).first()
-        if user_cheating_count.cheating_count == 0:
+        group_participation = group_crud.get_group_by_date_track_id(db,user_id=user_id,date=date,track_id=mealcheating.track_id)
+        if group_participation is None:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        group, cheating_count, user_id2 = group_participation # 튜플 언패킹(group, participation obj 로 나눔)
+
+        if mealcheating.cheating == 1:
+            return {"detail": "today already cheating"}
+
+        if cheating_count is None or cheating_count <= 0:
             return {"detail": " cheating is 0"}
-        else:
-            if mealcheating.cheating == 1:
-                return {"detail": "today already cheating"}
-            if user_cheating_count.cheating_count is not None and user_cheating_count.cheating_count >=1:
-                user_cheating_count.cheating_count -= 1
-                db.commit()
-                db.refresh(user_cheating_count)
-                mealcheating.cheating = 1
-                db.commit()
-                db.refresh(mealcheating)
-                return {"detail": "cheating updated successfully"}
+
+        # SQLAlchemy Core를 사용하여 cheating_count 업데이트
+        stmt = update(Participation).where(
+            Participation.c.group_id == group.id,
+            Participation.c.user_id == user_id
+        ).values(cheating_count=Participation.c.cheating_count - 1)
+        db.execute(stmt)
+        db.commit()
+
+        mealcheating.cheating = 1
+        db.commit()
+        db.refresh(mealcheating)
+        return {"detail": "cheating updated successfully"}
     else:
         if mealcheating.cheating == 1:
             mealcheating.cheating = 0
@@ -211,30 +258,47 @@ def get_Track_Mealhour(id: int, daytime: str, db: Session = Depends(get_db)):
     return meal_day_schema.MealDay_track_today_schema(mealday=result)
 
 @router.get("/get/{user_id}/{daytime}/dday_goal_real",response_model=meal_day_schema.MealDay_track_dday_goal_real_schema)
-def get_MealDay_dday_goal_real(id: int, daytime: str, db: Session=Depends(get_db)):
+def get_MealDay_dday_goal_real(user_id: int, daytime: str, db: Session=Depends(get_db)):
     """
-    식단일일(MealDay) 모 : 13page 2-1번
-     - 입력예시 : user_id = 1, time = 2024-06-01아침
-     - 출력 : 당일 식단게시글[MealHour.name, MealHour.calorie, MealHour.date, MealHour.heart, picture_url, Mealhour.track_goal]
+    해당일 트랙 일차 및 루틴 표시 : 13page 6번
+     - 입력예시 : user_id = 1, time = 2024-06-01
+     - 출력 : D-day, [TrackRoutin.time(아침,점심)], [MealHour.time(아침,점심), MealHour.name(음식명)]
     """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    mealday = meal_day_crud.get_MealDay_bydate(db,user_id=id,date=date)
+    mealday = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+    if mealday is None:
+        raise HTTPException(status_code=404, detail="MealDay not found")
     if mealday.track_id is None:
-        return {"detail" : "track not use"}
+        raise HTTPException(status_code=404, detail="No Use Track today")
 
-    group_info = group_crud.get_Group_bydate(db,user_id=id,date=date)
-    dday = group_info.finish_day - date
-
+    # 요일을 정수로 얻기 (월요일=0, 일요일=6)
     weekday_number = date.weekday()
+    # 요일을 한글로 얻기 (월요일=0, 일요일=6)
     weekday_str = ["월", "화", "수", "목", "금", "토", "일"][weekday_number]
-    track_info = db.query(TrackRoutine.time).filter(and_(TrackRoutine.track_id==mealday.track_id,
-                                                          or_(TrackRoutine.date==date,
-                                                              TrackRoutine.week.like(f"{weekday_str}"))))
-    goal_time = List[track_info]
+    group_info = group_crud.get_group_by_date_track_id(db, user_id=user_id, date=date, track_id=mealday.track_id)
+    if group_info is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    group, cheating_count, user_id2 = group_info
+    solodate = date - group.start_day
+    days = str(solodate.days + 1)
 
-    meal_info = meal_hour_crud.get_User_Meal_all_name(db,user_id=id,time=daytime)
+    dday = (date - group.start_day).days + 1
+    combined_results = db.query(TrackRoutine.time, TrackRoutine.title).filter(
+        and_(
+            TrackRoutine.track_id == mealday.track_id,
+            or_(
+                TrackRoutine.week.like(f"%{weekday_str}%"),
+                TrackRoutine.date.like(f"%{days}%"),
 
+            )
+        )
+    ).all()
+
+    # goal_time을 문자열 리스트로 변환
+    goal_time = [{"time": routine.time, "title": routine.title} for routine in combined_results]
+
+    meal_info = meal_hour_crud.get_User_Meal_all_name_time(db,user_id=user_id,time=daytime)
     return {"dday" : dday, "goal" : goal_time, "real" : meal_info}

@@ -86,6 +86,21 @@ def get_Track_sharelist(user_id: int, db:Session = Depends(get_db)):
         return 0
     return tracklist
 
+@router.get("/get/{user_id}/alltracks", response_model=List[track_schema.Track_list_get_schema])
+def get_track_all_list(user_id: int, db:Session = Depends(get_db)):
+    """
+    보유 트랙 정보 표시 : 19page 2-3번
+     - 입력예시 : user_id = 1
+     - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
+     - 빈출력 = track 없음
+     - Track.start_day가 느린순으로 출력
+    """
+    tracklist = track_crud.get_track_title_all(db,user_id=user_id)
+    if tracklist is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return tracklist
+
+
 @router.get("/get/{user_id}/{track_id}/Info", response_model=track_schema.Track_get_Info)
 def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
     tracks= track_crud.get_Track_bytrack_id(db,track_id=track_id)

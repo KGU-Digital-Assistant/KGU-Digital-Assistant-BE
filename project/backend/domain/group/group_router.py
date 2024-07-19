@@ -115,18 +115,30 @@ def accept_invitation(user_id: int, group_id: int, db: Session = Depends(get_db)
 #########################################
 
 @router.get("/get/{user_id}/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
-def get_Comment_date_user_id_text(user_id: int, daytime: str, db: Session = Depends(get_db)):
+def get_track_name_dday_byDate(user_id: int, daytime: str, db: Session = Depends(get_db)):
+    """
+    해당일 Track 사용시 Track.name, D-day 조회 : 9page 2번
+     - 입력예시 : user_id = 1, time = 2024-06-01
+     - 출력 : Track.name, Dday
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-
-    groups = group_crud.get_Group_bydate(db, user_id=user_id, date=date)
-    if groups is None:
-        raise HTTPException(status_code=404, detail="Comments not found")
-    name=groups.name
-    dday=groups.finish_day - date
-    return {"name": name, "dday":dday} ##name, d-day 열출력
+    meal_day = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date)
+    if meal_day is None:
+        raise HTTPException(status_code=404, detail="MealDay not found")
+    track_name = None
+    dday = None
+    if meal_day and meal_day.track_id:
+        using_track = track_crud.get_Track_bytrack_id(db, track_id=meal_day.track_id)
+        if using_track:
+            track_name = using_track.name
+        group_info = group_crud.get_group_by_date_track_id(db, user_id=user_id, date=date, track_id=meal_day.track_id)
+        if group_info and group_info is not None:
+            group, cheating_count, user_id2 = group_info
+            dday = (date - group.start_day).days + 1
+    return {"name": track_name, "dday":dday} ##name, d-day 열출력
 
 @router.get("/get/{track_id}/name", response_model=group_schema.Group_get_track_name_schema)
 def get_track_name_before_startGroup(user_id: int, track_id, db:Session = Depends(get_db)):

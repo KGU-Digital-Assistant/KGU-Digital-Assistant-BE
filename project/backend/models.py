@@ -7,7 +7,7 @@ Participation = Table(
     'Participation', Base.metadata,
     Column('user_id', Integer, ForeignKey('User.id'), primary_key=True), ## 그룹가입 user(회원들)
     Column('group_id', Integer, ForeignKey('Group.id'), primary_key=True), ## 그룹id
-    Column('cheating_count', Integer, nullable=False, default=0)
+    Column('cheating_count', Integer, nullable=True)
 )
 
 class User(Base):  # 회원
@@ -21,7 +21,7 @@ class User(Base):  # 회원
     birth = Column(DateTime)
     create_date = Column(DateTime, nullable=False)  # 가입일자
     nickname = Column(String, unique=True, nullable=False)
-    rank = Column(String, nullable=False)
+    rank = Column(Float, nullable=False)
     profile_picture = Column(String)
     mentor_id = Column(Integer, ForeignKey("Mentor.id"), )
     email = Column(String, unique=True, nullable=False)
@@ -82,8 +82,8 @@ class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인
     track_id = Column(Integer, ForeignKey("Track.id"))
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
     name = Column(String, unique=True, nullable=False)
-    start_day = Column(DateTime, nullable=False)
-    finish_day = Column(DateTime, nullable=False)
+    start_day = Column(Date, nullable=True)
+    finish_day = Column(Date, nullable=True)
     users = relationship("User", secondary=Participation, back_populates="groups")
 
 class TrackRoutine(Base): ## 식단트랙 루틴

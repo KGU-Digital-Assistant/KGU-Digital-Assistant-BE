@@ -5,8 +5,11 @@ import requests
 from fastapi import APIRouter, HTTPException, Depends, Request, status, Query, Form
 from sqlalchemy.orm import Session
 from database import get_db
+from domain.group import group_crud
+from domain.meal_day import meal_day_crud
 from domain.mentor.mentor_crud import create_mentor, update_mentor_gym, mentor_delete, matching_mentor
 from domain.mentor import mentor_schema, mentor_crud
+from domain.track import track_crud
 from models import Mentor, User, MealHour, MealDay
 from domain.user import user_crud, user_router
 
@@ -115,8 +118,8 @@ def find_User(id: int, name:str = Query(...), db: Session = Depends(get_db)):
 def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
     """
     회원들리스트 정보(당일 Calorie, 식단내용 등) 조회 : 15page 4번
-     - 입력예시 : user_id = 1, time = 2024-06-01아침
-     - 출력 : 당일 식단게시글[MealHour.time, MealHour.name]
+     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 출력 : 회원들리스트정보 출력
     """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
@@ -131,7 +134,8 @@ def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
     date_part=daytime[:10]
 
     for user in Users:
-        # User의 meal_hour 정보를 특정 날짜에 맞게 찾습니다.
+        ranks = user_crud.get_User_rank(db,user.id)
+        # User의 meal_hour 정보를 특정 날짜에 맞게 찾기.
         meal_hours = db.query(MealHour).filter(
                 MealHour.user_id == user.id,
                 MealHour.time.like(f"{date_part}%")
@@ -139,22 +143,30 @@ def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
 
         meal_names = [meal_hour.name for meal_hour in meal_hours]
 
-        # User의 meal_day 정보를 특정 날짜에 맞게 찾습니다.
-        meal_day = db.query(MealDay).filter(
-                MealDay.user_id == user.id,
-                MealDay.date == date
-        ).first()
-
+        # User의 meal_day 정보를 특정 날짜에 맞게 찾기.
+        meal_day = meal_day_crud.get_MealDay_bydate(db,user_id=user.id,date=date)
         now_calorie = meal_day.nowcalorie if meal_day else None
         cheating = meal_day.cheating if meal_day else None
+        track_name=None
+        dday=None
+        if meal_day and meal_day.track_id:
+            using_track = track_crud.get_Track_bytrack_id(db,track_id=meal_day.track_id)
+            if using_track:
+                track_name = using_track.name
+            group_info = group_crud.get_group_by_date_track_id(db,user_id=user.id, date=date,track_id=meal_day.track_id)
+            if group_info and group_info is not None:
+                group, cheating_count, user_id2 = group_info
+                dday= (date - group.start_day).days + 1
 
         user_info = mentor_schema.Users_Info(
             user_id=user.id,
             user_name=user.name,
-            user_rank=user.rank,
+            user_rank=ranks,
             meal_names=meal_names,
             meal_cheating=cheating,
-            now_calorie=now_calorie
+            now_calorie=now_calorie,
+            track_name=track_name,
+            dday=dday
         )
         result.append(user_info)
 

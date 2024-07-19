@@ -49,6 +49,8 @@ class Users_Info(BaseModel):
     meal_names: List[str]
     meal_cheating: Optional[int] = None
     now_calorie: Optional[float] = None
+    track_name: Optional[str] = None
+    dday:Optional[int] = None
 
 class Mentor_get_UserInfo_schema(BaseModel):
     users: List[Users_Info]
