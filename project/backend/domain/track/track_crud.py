@@ -1,12 +1,11 @@
 from typing import List
 
 from sqlalchemy import desc
-from datetime import datetime
+from datetime import datetime, timedelta
 from models import User, Track, Invitation, MealDay
 from sqlalchemy.orm import Session
 from domain.track.track_schema import Track_list_get_schema,TrackCreate, TrackSchema
 from domain.group import group_crud
-
 
 def track_create(db: Session, user: User):
     db_track = Track(user_id=user.id)
