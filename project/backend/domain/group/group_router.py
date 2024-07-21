@@ -2,13 +2,13 @@ import firebase_admin
 from fastapi import APIRouter, HTTPException, Depends
 from firebase_admin import credentials, messaging
 from sqlalchemy.exc import NoResultFound
-from domain.group import group_schema,group_crud
+from domain.group import group_schema, group_crud
 from sqlalchemy.orm import Session
 from starlette import status
 from starlette.config import Config
 from starlette.responses import JSONResponse
 from datetime import datetime, timedelta
-from domain.group.group_schema import GroupCreate, GroupSchema
+from domain.group.group_schema import GroupCreate, GroupSchema, GroupDate
 from domain.meal_day import meal_day_crud
 from domain.user import user_crud
 from domain.track import track_crud
@@ -33,12 +33,12 @@ async def add_track(user_id: int, group_id: int, db: Session = Depends(get_db)):
 
 
 # 그룹 생성
-@router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/create/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 def create_track_group(_group: GroupCreate,
                        track_id: int,
                        current_user: User = Depends(user_router.get_current_user),
                        db: Session = Depends(get_db)):
-    track = db.query(Track).filter(Track.id == track_id).first()
+    track = track_crud.get_track_by_id(track_id=track_id, db=db)
     if not track:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -51,7 +51,9 @@ def create_track_group(_group: GroupCreate,
             detail="Unauthorized"
         )
 
-    group_crud.create_group(db=db, _group=_group, track=track, user_id=current_user.id)
+    group = group_crud.create_group(db=db, _group=_group, track=track, user_id=current_user.id)
+    if not track.share:
+        group_crud.participate_group(db=db, user_id=current_user.id, group_id=group.id)
 
 
 @router.get("/get/{group_id}", status_code=status.HTTP_200_OK, response_model=GroupSchema)
@@ -59,31 +61,44 @@ def get_group(group_id: int, db: Session = Depends(get_db)):
     return group_crud.get_group_by_id(db=db, group_id=group_id)
 
 
+@router.patch("/update/date/{group_id}")
+def update_track(group_id: int, date: group_schema.GroupDate, db: Session = Depends(get_db)):
+    return group_crud.update_group_date(db=db, group_id=group_id, date=date)
+
+
 # 초대
 @router.post("/invite", status_code=status.HTTP_204_NO_CONTENT)
-def invite_group(_user_id: int, _group_id: int, db: Session = Depends(get_db)):
+def invite_group(_receive_user_id: int, _group_id: int,
+                 current_user: User = Depends(user_router.get_current_user),
+                 db: Session = Depends(get_db)):
     try:
-        user = db.query(User).filter(User.id == _user_id).one()
+        recv_user = db.query(User).filter(User.id == _receive_user_id).one()
         group = db.query(Group).filter(Group.id == _group_id).one()
 
+        if group.track.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unauthorized"
+            )
+
         # 초대 생성
-        group_crud.create_invitation(db=db, user_id=user.id, group_id=group.id)
+        group_crud.create_invitation(db=db, user_id=recv_user.id, group_id=group.id)
 
         # 푸시 알림 보내기
-        if user.fcm_token:
+        if recv_user.fcm_token:
             message_title = "group Invitation"
-            message_body = f"Hello {user.username},\n\nYou have been invited to join the group '{group.name}'."
+            message_body = f"Hello {recv_user.username},\n\nYou have been invited to join the group '{group.name}'."
             message = messaging.Message(
                 notification=messaging.Notification(
                     title=message_title,
                     body=message_body,
                 ),
-                token=user.fcm_token,
+                token=recv_user.fcm_token,
             )
             response = messaging.send(message)
             print('Successfully sent message:', response)
 
-        return {"message": f"User {_user_id} has been invited to group {_group_id} and notified."}
+        return {"message": f"User {_receive_user_id} has been invited to group {_group_id} and notified."}
     except NoResultFound:
         db.rollback()
         raise HTTPException(status_code=404, detail="User or Group not found")
@@ -92,11 +107,25 @@ def invite_group(_user_id: int, _group_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/accept", status_code=status.HTTP_204_NO_CONTENT)
-def accept_invitation(user_id: int, group_id: int, db: Session = Depends(get_db)):
-    try:
-        group_crud.accept_invitation(db=db, user_id=user_id, group_id=group_id)
+@router.post("/delete/group/user")
+def delete_track(cur_user: User = Depends(user_router.get_current_user),
+                 db: Session = Depends(get_db)):
+    group_crud.delete_group_in_user(cur_user, db)
+    return {"message": "User has been deleted."}
 
+
+@router.post("/accept", status_code=status.HTTP_204_NO_CONTENT)
+def accept_invitation(group_id: int,
+                      respond: group_schema.Respond,
+                      current_user: User = Depends(user_router.get_current_user),
+                      db: Session = Depends(get_db)):
+    try:
+        if current_user.cur_group_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="already group in current user, please delete origin group first"
+            )
+        res = group_crud.accept_invitation(db=db, user_id=current_user.id, group_id=group_id, respond=respond)
         # 사용자와 트랙의 관계 설정
         # user = db.query(User).filter(User.id == user_id).one()
         # group = db.query(Group).filter(Group.id == group_id).one()
@@ -104,13 +133,14 @@ def accept_invitation(user_id: int, group_id: int, db: Session = Depends(get_db)
         # db.commit()
 
         # return JSONResponse(status_code=200, content={"message": f"User {user_id} has accepted the invitation to Group {group_id}."})
-        return {"message": f"User {user_id} has accepted the invitation to Track {group_id}."}
+        return {"message": f"User {current_user.name} has accepted the invitation to Track {group_id}."}
     except NoResultFound:
         db.rollback()
         raise HTTPException(status_code=404, detail="Invitation not found or already responded to")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 #########################################
 

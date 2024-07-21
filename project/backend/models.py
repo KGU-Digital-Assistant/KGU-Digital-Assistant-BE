@@ -23,12 +23,13 @@ class User(Base):  # 회원
     nickname = Column(String, unique=True, nullable=False)
     rank = Column(String, nullable=False)
     profile_picture = Column(String)
-    mentor_id = Column(Integer, ForeignKey("Mentor.id"), )
+    mentor_id = Column(Integer, ForeignKey("Mentor.id"))
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     external_id = Column(String)  # 연동했을 때 id
     auth_type = Column(String)  # 연동 방식 ex)kakao
     fcm_token = Column(String) # fcm 토큰 -> 앱 실행시(?), 회원가입(?)
+    cur_group_id = Column(Integer, ForeignKey("Group.id")) # 현재 참여중인 그룹 추가
     groups = relationship('Group', secondary=Participation, back_populates='users')
 
 class Mentor(Base): ## 멘토
@@ -74,6 +75,7 @@ class Track(Base):  # 식단트랙
     start_date = Column(Date)
     finish_date = Column(Date)
     routines = relationship("TrackRoutine", back_populates="track")
+    share = Column(Boolean, default=False) # 공유 트랙, 개인 트랙 판별
 
 class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인 테이블
     __tablename__ = "Group"
@@ -82,8 +84,8 @@ class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인
     track_id = Column(Integer, ForeignKey("Track.id"))
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
     name = Column(String, unique=True, nullable=False)
-    start_day = Column(DateTime, nullable=False)
-    finish_day = Column(DateTime, nullable=False)
+    start_day = Column(DateTime)
+    finish_day = Column(DateTime)
     users = relationship("User", secondary=Participation, back_populates="groups")
 
 class TrackRoutine(Base): ## 식단트랙 루틴

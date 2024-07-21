@@ -108,3 +108,11 @@ def get_TrackRoutine_track_title_calorie(user_id: int, time: str, db: Session=De
                                                                                     TrackRoutine.date.like(f"{days}")
                                                                        ))).first()
     return trackroutines
+
+
+@router.get("/get/avg-calorie/{track_id}")
+def get_avg_calorie(track_id: int, db: Session = Depends(get_db)):
+    """
+    목표 일일 칼로리 -> 모든 루틴 칼로리의 합 / 루틴 일 수
+    """
+    return track_routine_crud.get_calorie_average(track_id=track_id, db=db)

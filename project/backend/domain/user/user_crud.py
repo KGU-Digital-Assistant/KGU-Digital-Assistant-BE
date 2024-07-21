@@ -11,7 +11,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_existing_user(db: Session, user_create: UserCreate):
     return db.query(User).filter(
-        User.cellphone == user_create.cellphone
+        User.cellphone == user_create.cellphone or
+        User.nickname == user_create.nickname or
+        User.email == user_create.email
     ).first()
 
 
@@ -200,5 +202,9 @@ def invitation_respond(invitation_id: int, response: str, db: Session, _mentee_i
         db.commit()
 
 
-
-
+def delete_mentor(id: int, db: Session):
+    user = db.query(User).filter(User.id == id).first()
+    if user is None:
+        return False
+    user.mentor_id = None
+    return True

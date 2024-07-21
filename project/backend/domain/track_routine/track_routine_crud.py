@@ -1,4 +1,6 @@
 from datetime import date
+from typing import List
+
 from domain.track_routine import track_routine_schema
 from models import TrackRoutine
 from sqlalchemy.orm import Session
@@ -49,10 +51,11 @@ def get_routine_by_routine_id(db: Session, routine_id: int):
 
 
 def get_track_routine_by_track_id(db: Session, track_id:int):
-    trackroutines = db.query(TrackRoutine).filter(
+    track_routines = db.query(TrackRoutine).filter(
         TrackRoutine.track_id==track_id
     ).all()
-    return trackroutines
+
+    return track_routines
 
 def get_trackRoutine_days(db: Session, user_id: int, track_id: int, start_day:date,finish_day:date):
 
@@ -71,3 +74,12 @@ def update_routine(_routine_id: int, _routine: track_routine_schema.TrackRoutine
     db.commit()
     db.refresh(db_routine)
 
+
+def get_calorie_average(track_id: int, db: Session):
+    routines = db.query(TrackRoutine).filter(TrackRoutine.track_id==track_id).all()
+
+    sum = 0
+    for routine in routines:
+        sum += routine.calorie
+
+    return sum / len(routines)

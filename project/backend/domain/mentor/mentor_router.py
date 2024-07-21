@@ -107,6 +107,14 @@ def respond_mentee(invite_id: int,
     return {"status": "ok"}
 
 @router.post("/manage/delete", status_code=201)
+def delete_mentor(_current_user: User = Depends(user_router.get_current_user),
+                  db: Session = Depends(get_db)):
+    if user_crud.delete_mentor(_current_user.id, db):
+        return {"status": "ok"}
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User Not Found",
+    )
 
 
 
@@ -126,6 +134,7 @@ def gym_update(_mentor_gym: mentor_schema.MentorGym,
             detail="mentor not found",
         )
     return {"status": "ok"}
+
 
 @router.delete("/delete", status_code=204)
 def delete_mentor(cur_user: User = Depends(user_router.get_current_user), db: Session = Depends(get_db)):

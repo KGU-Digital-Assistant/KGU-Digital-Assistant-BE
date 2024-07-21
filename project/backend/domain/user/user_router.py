@@ -45,7 +45,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(config('ACCESS_TOKEN_EXPIRE_MINUTES'))
 REDIRECT_URI = config('REDIRECT_URI')
 SECRET_KEY = config('SECRET_KEY')
 ALGORITHM = "HS256"
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
 router = APIRouter(
     prefix="/user",

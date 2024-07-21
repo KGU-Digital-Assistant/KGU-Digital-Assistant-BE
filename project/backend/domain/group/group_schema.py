@@ -13,7 +13,7 @@ class GroupCreate(BaseModel):
     # 시작일이 이미 지난 날이면 안됨
     @field_validator('start_day')
     def validate_start_day(cls, value):
-        if value < datetime.date.today():
+        if value <= datetime.date.today():
             raise ValueError('start_day must be today or a future date')
         return value
 
@@ -53,3 +53,16 @@ class Group_get_track_name_schema(BaseModel):
     trackold: Optional[str] = None
     tracknew: str
 
+
+class GroupDate(BaseModel):
+    start_date: datetime.date
+    end_date: datetime.date
+
+
+class Respond(BaseModel):
+    respond: str
+
+    @field_validator('respond')
+    def validate_respond(cls, value):
+        if value not in ['accepted', 'rejected']:
+            raise ValueError('respond must be either accepted or rejected')
