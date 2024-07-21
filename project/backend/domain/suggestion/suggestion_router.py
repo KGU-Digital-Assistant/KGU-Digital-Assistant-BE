@@ -5,7 +5,7 @@ from database import get_db
 from typing import List
 from models import Suggestion
 from domain.suggestion import suggestion_schema,suggestion_crud
-from datetime import datetime
+from datetime import datetime, timedelta
 from starlette import status
 
 router=APIRouter(
@@ -34,7 +34,7 @@ def post_Suggest(id: int, title: str=Form(...), content: str=Form(...), db: Sess
         user_id=id,
         title=title,
         content=content,
-        date=datetime.utcnow()
+        date=datetime.utcnow()+ timedelta(hours=9)
     )
     db.add(new_suggest)
     db.commit()

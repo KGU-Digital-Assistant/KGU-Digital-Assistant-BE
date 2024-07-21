@@ -8,7 +8,7 @@ from domain.comment import comment_schema,comment_crud
 from domain.meal_hour import meal_hour_crud
 from firebase_config import send_fcm_notification
 from domain.user.user_crud import get_User,get_User_name
-from datetime import datetime
+from datetime import datetime, timedelta
 from starlette import status
 
 router=APIRouter(
@@ -43,7 +43,7 @@ async def post_comment(user_id: int, time: str,user_id2: int,text: str = Form(..
     new_comment = Comment(
         meal_id=meal_post.id,
         text=text,
-        date=datetime.utcnow(),
+        date=datetime.utcnow() + timedelta(hours=9),
         user_id=user_id2
     )
 

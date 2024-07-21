@@ -142,7 +142,7 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
         name=food_info_dict.get("name",""),
         picture=meal_blob.name,
         text=text,
-        date=datetime.utcnow(),  # 현재 시간을 기본값으로 설정
+        date=datetime.utcnow()+ timedelta(hours=9),  # 현재 시간을 기본값으로 설정
         heart=food_info_dict.get("heart", False),
         time=time,
         carb=food_info_dict.get("carb", 0.0),
@@ -180,7 +180,7 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
         name=food_info_dict.get("name",""),
         picture=meal_blob.name,
         text=text,
-        date=datetime.utcnow(),  # 현재 시간을 기본값으로 설정
+        date=datetime.utcnow()+ timedelta(hours=9),  # 현재 시간을 기본값으로 설정
         heart=food_info_dict.get("heart", False),
         time=time,
         carb=food_info_dict.get("carb", 0.0),

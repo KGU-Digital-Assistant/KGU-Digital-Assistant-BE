@@ -3,7 +3,7 @@ from typing import List
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, HTTPException, Depends, Request, Form
 from starlette import status
-from datetime import datetime
+from datetime import datetime, timedelta
 from database import get_db
 from domain.user import user_router, user_crud
 from models import Track, User, TrackRoutine
@@ -112,7 +112,7 @@ def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
     if tracks is None:
         raise HTTPException(status_code=404, detail="Track not found")
     username=user_crud.get_User_name(db,id=tracks.user_id)
-    today=datetime.utcnow().date()
+    today=datetime.utcnow().date()+ timedelta(hours=9)
     #트랙을 사용중인 그룹 회원 수
     groups_count=group_crud.get_group_by_date_track_id_all(db,date=today,track_id=track_id)
     if not groups_count:
@@ -152,6 +152,7 @@ def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
         "start_day": startday,
         "finish_day": finishday,
         "duration": tracks.duration,
+        "caloire" : tracks.goal_calorie,
         "count" : count,
         "repeatroutin": repeat,
         "soloroutin": solo

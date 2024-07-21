@@ -74,7 +74,7 @@ def get_Track_share_title_all(db:Session,user_id:int):
             tracks]
 
 def check_today_track_id(db:Session, user_id: int, track_id: int) -> bool:
-    date = datetime.utcnow().date()
+    date = datetime.utcnow().date()+ timedelta(hours=9)
     mealtoday = db.query(MealDay).filter(MealDay.user_id==user_id, MealDay.date==date).first()
     if mealtoday and mealtoday.track_id==track_id:
         return True

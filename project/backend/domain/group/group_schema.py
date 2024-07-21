@@ -51,5 +51,5 @@ class Group_name_dday_schema(BaseModel):
 
 class Group_get_track_name_schema(BaseModel):
     trackold: Optional[str] = None
-    tracknew: str
+    tracknew: Optional[str] = None
 

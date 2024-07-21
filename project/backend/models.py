@@ -70,7 +70,7 @@ class Track(Base):  # 식단트랙
     duration = Column(Integer)  # Interval : 일, 시간, 분, 초 단위로 기간을 표현 가능, 정확한 시간의 간격(기간)
     track_yn = Column(Boolean, default=True)  # 트랙 생성자가 이를 삭제하면 남들도 이거 사용 못하게 함
     cheating_count = Column(Integer, default=0)
-    goal_caloire = Column(Integer, default=0)
+    goal_calorie = Column(Float, default=0) #오타 수정 -> float변경
     start_date = Column(Date)
     finish_date = Column(Date)
     routines = relationship("TrackRoutine", back_populates="track")

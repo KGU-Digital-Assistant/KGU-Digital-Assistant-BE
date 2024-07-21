@@ -68,9 +68,9 @@ def get_Group_byuserid_track_id(db: Session, user_id:int, track_id:int):
     return groups
 
 def get_Group_byuserid_track_id_bystartfinishday(db: Session, user_id:int, track_id:int, date: date):
-    date2 = datetime.combine(date, datetime.min.time())
+
     groups = db.query(Group).filter(Group.user_id==user_id, Group.track_id==track_id,
-                                    Group.start_day<=date2, Group.finish_day>=date2
+                                    Group.start_day<=date, Group.finish_day>=date
                                     ).first()
     if groups is None:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -85,6 +85,20 @@ def get_group_by_date_track_id(db: Session, user_id: int, date: date, track_id: 
             Participation.c.user_id == user_id,
             Group.start_day <= date,
             Group.finish_day >= date,
+            Group.track_id == track_id
+        )
+        .first()
+    )
+    return result if result else None
+
+def get_group_date_null_track_id(db: Session, user_id: int, track_id: int):
+    result = (
+        db.query(Group, Participation.c.cheating_count, Participation.c.user_id)
+        .join(Participation, Group.id == Participation.c.group_id)
+        .filter(
+            Participation.c.user_id == user_id,
+            Group.start_day == None,
+            Group.finish_day == None,
             Group.track_id == track_id
         )
         .first()

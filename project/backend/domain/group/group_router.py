@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from domain.group.group_schema import GroupCreate, GroupSchema
 from domain.meal_day import meal_day_crud
 from domain.user import user_crud
+from domain.track_routine import track_routine_crud
 from domain.track import track_crud
 from domain.group import group_crud
 from domain.user import user_router
@@ -147,7 +148,7 @@ def get_track_name_before_startGroup(user_id: int, track_id, db:Session = Depend
      - 입력예시 : user_id = 1, track_id = 14
      - 출력 : Track.name(old), Track.name(new)
     """
-    date = datetime.utcnow().date()
+    date = datetime.utcnow().date() + timedelta(hours=9)
     mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
     if mealtoday and mealtoday.track_id:
         trackoldrow=track_crud.get_Track_bytrack_id(db,track_id=mealtoday.track_id)
@@ -155,35 +156,36 @@ def get_track_name_before_startGroup(user_id: int, track_id, db:Session = Depend
     else:
         trackold= None
     tracknewrow = track_crud.get_Track_bytrack_id(db,track_id=track_id)
-    tracknew = tracknewrow.name
+    if tracknewrow and tracknewrow.name:
+        tracknew = tracknewrow.name
+    else:
+        tracknew = None
     return {"trackold" : trackold, "tracknew" : tracknew}
 
 
 @router.post("/start_track/{user_id}/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 def start_track_user_id_track_id(user_id: int, track_id: int, db: Session= Depends(get_db)):
-    current_date= datetime.utcnow().date()
-    current_datetime=datetime.utcnow()
+    """
+    트랙 시작하기 (기존 Mealday의 track_id, goal_calorie 변경 -> 기존 group 종료일 변경 -> 새로운 Group의 시작종료일세팅 ->Mealday 정보수정
+     - 입력예시 : user_id = 1, track_id = 14
+     - 출력 : Track.name, User.nickname
+    """
     Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
     if Track_willuse is None:
         raise HTTPException(status_code=404, detail="Track not found")
-
-    groups = Group(   ## 기존 그룹에서 시작하기전 해당 내용복사하여 다시 트랙사용할때 쓸수잇도록함
-        track_id=track_id,
-        user_id=user_id,
-        start_day=current_date,
-        finish_day=current_date + timedelta(days=Track_willuse.duration)
-    )
-    db.add(groups)
-    db.commit()
-    db.refresh(groups)
-
-    date1 = current_datetime
-    mealtoday= meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=current_date)
+    if Track_willuse.start_date <= (datetime.utcnow() + timedelta(hours=9)).date():
+        return {"detail" : "start_date <= today"}
+    date=Track_willuse.start_date
+    date1 = date
+    ##기존 사용중인 트랙 있을 경우에 해당 Group 종료일변경 및 Mealday의 goalcalorie, track_id 변경
+    mealtoday= meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
     if mealtoday and mealtoday.track_id and mealtoday.track_id >=1:
-        group_past= group_crud.get_Group_byuserid_track_id_bystartfinishday(db, user_id=user_id,track_id=mealtoday.track_id, date=current_date)
-        while date1 <= group_past.finish_day: ## 금일 ~ 과거 track 날짜까지 track_id, goalcalorie 초기화 // 트랙중도변경시
-            date0=date1.date()
-            mealold = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date0)
+        group_participation = group_crud.get_group_by_date_track_id(db,user_id=user_id,date=date,track_id=mealtoday.track_id)
+        if group_participation is None:
+            raise HTTPException(status_code=404, detail="Group not found")
+        group, cheating_count, user_id2 = group_participation # 튜플 언패킹(group, participation obj 로 나눔)
+        while date1 <= group.finish_day: ## 금일 ~ 과거 track 날짜까지 track_id, goalcalorie 초기화 // 트랙중도변경시
+            mealold = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date1)
             if mealold:
                 mealold.track_id=None
                 mealold.goalcalorie=0.0
@@ -191,18 +193,25 @@ def start_track_user_id_track_id(user_id: int, track_id: int, db: Session= Depen
                 db.commit()
                 db.refresh(mealold)
             date1 += timedelta(days=1)
-        group_past.finish_day = current_date - timedelta(days=1)
-        db.add(group_past)
+        group.finish_day = date - timedelta(days=1)
+        db.add(group)
         db.commit()
-        db.refresh(group_past) ## 중도포기한 트랙종료시점 작성
-
-    date2 = current_datetime
-    while date2 <= groups.finish_day:
-        date3=date2.date()
-        mealnew=meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date3)
+        db.refresh(group) ## 중도포기한 트랙종료시점 작성
+    ## 새 트랙의 Group 시작 종료일 설정
+    groupnew = group_crud.get_group_date_null_track_id(db, user_id=user_id,track_id=track_id)
+    groupnew.start_day = date
+    groupnew.finish_day = date + timedelta(days=Track_willuse.duration)
+    db.add(groupnew)
+    db.commit()
+    db.refresh(groupnew)
+    ## MealDay의 새로운 Track_id및 goalcalorie 설정
+    date2 = date
+    while date2 <= groupnew.finish_day:
+        mealnew=meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date2)
+        days=(groupnew.finish_day - date2).days
         if mealnew:
             mealnew.track_id=track_id
-            mealnew.goalcalorie=Track_willuse.goal_calorie
+            mealnew.goalcalorie=track_routine_crud.get_goal_caloire_bydate_using_trackroutine(db,days=days,track_id=track_id,date=date2)
             db.add(mealnew)
             db.commit()
             db.refresh(mealnew)
@@ -216,12 +225,12 @@ def start_track_user_id_track_id(user_id: int, track_id: int, db: Session= Depen
                 protein=0.0,
                 fat=0.0,
                 cheating=0,
-                goalcalorie=Track_willuse.goal_calorie,
+                goalcalorie=track_routine_crud.get_goal_caloire_bydate_using_trackroutine(db,days=days,track_id=track_id,date=date2),
                 nowcalorie=0.0,
                 gb_carb=None,
                 gb_protein=None,
                 gb_fat=None,
-                date=date3,
+                date=date2,
                 track_id=track_id  ## 트랙 user사용중일때 안할때 이거 변경해야할거같은데
             )
             db.add(new_meal)

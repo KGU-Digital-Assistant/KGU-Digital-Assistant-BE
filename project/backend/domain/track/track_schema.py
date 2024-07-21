@@ -81,6 +81,7 @@ class Track_get_Info(BaseModel):
     start_day: Optional[date]=None
     finish_day: Optional[date]= None
     duration: Optional[int]= None
+    calorie: Optional[float] = None
     count: Optional[int]=None
     repeatroutin: Optional[List[TrackRoutin_id_title]] = []
     soloroutin: Optional[List[TrackRoutin_id_title]] = []
