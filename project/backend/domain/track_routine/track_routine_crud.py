@@ -72,3 +72,12 @@ def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int ,track_id:
         count=result.count(',')
         calorie += (count * result.calorie)
     return calorie
+
+def get_calorie_average(track_id: int, db: Session):
+    routines = db.query(TrackRoutine).filter(TrackRoutine.track_id==track_id).all()
+
+    sum = 0
+    for routine in routines:
+        sum += routine.calorie
+
+    return sum / len(routines)

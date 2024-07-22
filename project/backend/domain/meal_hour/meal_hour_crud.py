@@ -70,3 +70,8 @@ def get_User_Meal_all_picutre(db: Session, user_id: int, time: str): ##timeê°’ ì
         MealHour.time.like(f"{date_part}%")
     ).all()
     return [MealHour_daymeal_get_picture_schema(name=meal.name, calorie=meal.calorie,picture=meal.picture) for meal in user_meal]
+
+def create_file_name(user_id:int)->str:
+    time=datetime.now().strftime('%Y-%m-%d-%H%M%S')
+    filename = f"{user_id}_{time}"
+    return filename

@@ -55,7 +55,6 @@ def get_MealDay_date_cheating_count(user_id: int, daytime: str, db: Session = De
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-
     mealcheating = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date)
     if mealcheating is None:
         raise HTTPException(status_code=404, detail="MealDaily not found")
@@ -63,12 +62,12 @@ def get_MealDay_date_cheating_count(user_id: int, daytime: str, db: Session = De
     if mealcheating.track_id is None:
         return {"cheating_count": 9999}
 
-    group_participation = group_crud.get_group_by_date_track_id(db, user_id=user_id, date=date,
+    group_participation = group_crud.get_group_by_date_track_id_in_part(db, user_id=user_id, date=date,
                                                                 track_id=mealcheating.track_id)
     if group_participation is None:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    group, cheating_count, user_id2 = group_participation
+    group, cheating_count, user_id2, flag, finish_date = group_participation
     return {"cheating_count": cheating_count, "user_id2": user_id2}
 
 @router.patch("/update/{user_id}/{daytime}/cheating", status_code=status.HTTP_204_NO_CONTENT)
@@ -89,11 +88,11 @@ async def update_MealDay_date_cheating(user_id: int, daytime: str,
         raise HTTPException(status_code=404, detail="MealDaily not found")
 
     if mealcheating.track_id:
-        group_participation = group_crud.get_group_by_date_track_id(db,user_id=user_id,date=date,track_id=mealcheating.track_id)
+        group_participation = group_crud.get_group_by_date_track_id_in_part(db,user_id=user_id,date=date,track_id=mealcheating.track_id)
         if group_participation is None:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        group, cheating_count, user_id2 = group_participation # 튜플 언패킹(group, participation obj 로 나눔)
+        group, cheating_count, user_id2, flag, finish_date = group_participation # 튜플 언패킹(group, participation obj 로 나눔)
 
         if mealcheating.cheating == 1:
             return {"detail": "today already cheating"}
@@ -272,16 +271,16 @@ def get_MealDay_dday_goal_real(user_id: int, daytime: str, db: Session=Depends(g
     if mealday is None:
         raise HTTPException(status_code=404, detail="MealDay not found")
     if mealday.track_id is None:
-        raise HTTPException(status_code=404, detail="No Use Track today")
+        return {"dday" : None, "goal" : None, "real" : None}
 
     # 요일을 정수로 얻기 (월요일=0, 일요일=6)
     weekday_number = date.weekday()
     # 요일을 한글로 얻기 (월요일=0, 일요일=6)
     weekday_str = ["월", "화", "수", "목", "금", "토", "일"][weekday_number]
-    group_info = group_crud.get_group_by_date_track_id(db, user_id=user_id, date=date, track_id=mealday.track_id)
+    group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=user_id, date=date, track_id=mealday.track_id)
     if group_info is None:
         raise HTTPException(status_code=404, detail="Group not found")
-    group, cheating_count, user_id2 = group_info
+    group, cheating_count, user_id2, flag, finish_date =group_info
     solodate = date - group.start_day
     days = str(solodate.days + 1)
 

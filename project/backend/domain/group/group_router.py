@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 from starlette import status
 from starlette.config import Config
 from starlette.responses import JSONResponse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from domain.group.group_schema import GroupCreate, GroupSchema
+from domain.meal_hour import meal_hour_crud
 from domain.meal_day import meal_day_crud
 from domain.user import user_crud
 from domain.track_routine import track_routine_crud
@@ -135,9 +136,9 @@ def get_track_name_dday_byDate(user_id: int, daytime: str, db: Session = Depends
         using_track = track_crud.get_Track_bytrack_id(db, track_id=meal_day.track_id)
         if using_track:
             track_name = using_track.name
-        group_info = group_crud.get_group_by_date_track_id(db, user_id=user_id, date=date, track_id=meal_day.track_id)
+        group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=user_id, date=date, track_id=meal_day.track_id)
         if group_info and group_info is not None:
-            group, cheating_count, user_id2 = group_info
+            group, cheating_count, user_id2, flag, finish_date =group_info
             dday = (date - group.start_day).days + 1
     return {"name": track_name, "dday":dday} ##name, d-day 열출력
 
@@ -163,80 +164,40 @@ def get_track_name_before_startGroup(user_id: int, track_id, db:Session = Depend
     return {"trackold" : trackold, "tracknew" : tracknew}
 
 
-@router.post("/start_track/{user_id}/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
-def start_track_user_id_track_id(user_id: int, track_id: int, db: Session= Depends(get_db)):
+@router.post("/start_track/{user_id}/{track_id}/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
+def start_track_user_id_track_id(user_id: int, track_id: int, daytime: str, db: Session= Depends(get_db)):
     """
     트랙 시작하기 (기존 Mealday의 track_id, goal_calorie 변경 -> 기존 group 종료일 변경 -> 새로운 Group의 시작종료일세팅 ->Mealday 정보수정
      - 입력예시 : user_id = 1, track_id = 14
      - 출력 : Track.name, User.nickname
+      트랙시작시점에 group의 state = started, participtaion의 flag는 finish_Date 도달시 false로 변경, 모두 false가 돼면 해당일에 group state = terminated 로 변경
     """
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
     Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
     if Track_willuse is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    if Track_willuse.start_date <= (datetime.utcnow() + timedelta(hours=9)).date():
-        return {"detail" : "start_date <= today"}
-    date=Track_willuse.start_date
-    date1 = date
-    ##기존 사용중인 트랙 있을 경우에 해당 Group 종료일변경 및 Mealday의 goalcalorie, track_id 변경
-    mealtoday= meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
-    if mealtoday and mealtoday.track_id and mealtoday.track_id >=1:
-        group_participation = group_crud.get_group_by_date_track_id(db,user_id=user_id,date=date,track_id=mealtoday.track_id)
-        if group_participation is None:
-            raise HTTPException(status_code=404, detail="Group not found")
-        group, cheating_count, user_id2 = group_participation # 튜플 언패킹(group, participation obj 로 나눔)
-        while date1 <= group.finish_day: ## 금일 ~ 과거 track 날짜까지 track_id, goalcalorie 초기화 // 트랙중도변경시
-            mealold = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date1)
-            if mealold:
-                mealold.track_id=None
-                mealold.goalcalorie=0.0
-                db.add(mealold)
-                db.commit()
-                db.refresh(mealold)
-            date1 += timedelta(days=1)
-        group.finish_day = date - timedelta(days=1)
-        db.add(group)
+    Group_willuse = group_crud.get_Group_bytrack_id_state_ready(db, track_id=track_id)
+    if Group_willuse is None:
+        db_groupnew = Group(
+            track_id = track_id,
+            user_id = Track_willuse.user_id,
+            name = meal_hour_crud.create_file_name(user_id=user_id),
+            start_day = None,
+            finish_day = None,
+            state = 'ready'
+        )
+        db.add(db_groupnew)
         db.commit()
-        db.refresh(group) ## 중도포기한 트랙종료시점 작성
-    ## 새 트랙의 Group 시작 종료일 설정
-    groupnew = group_crud.get_group_date_null_track_id(db, user_id=user_id,track_id=track_id)
-    groupnew.start_day = date
-    groupnew.finish_day = date + timedelta(days=Track_willuse.duration)
-    db.add(groupnew)
-    db.commit()
-    db.refresh(groupnew)
-    ## MealDay의 새로운 Track_id및 goalcalorie 설정
-    date2 = date
-    while date2 <= groupnew.finish_day:
-        mealnew=meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date2)
-        days=(groupnew.finish_day - date2).days
-        if mealnew:
-            mealnew.track_id=track_id
-            mealnew.goalcalorie=track_routine_crud.get_goal_caloire_bydate_using_trackroutine(db,days=days,track_id=track_id,date=date2)
-            db.add(mealnew)
-            db.commit()
-            db.refresh(mealnew)
-        else:
-            new_meal = MealDay(
-                user_id=user_id,
-                water=0.0,
-                coffee=0.0,
-                alcohol=0.0,
-                carb=0.0,
-                protein=0.0,
-                fat=0.0,
-                cheating=0,
-                goalcalorie=track_routine_crud.get_goal_caloire_bydate_using_trackroutine(db,days=days,track_id=track_id,date=date2),
-                nowcalorie=0.0,
-                gb_carb=None,
-                gb_protein=None,
-                gb_fat=None,
-                date=date2,
-                track_id=track_id  ## 트랙 user사용중일때 안할때 이거 변경해야할거같은데
-            )
-            db.add(new_meal)
-            db.commit()
-            db.refresh(new_meal)
-        date2 += timedelta(days=1)
-
-        nickname = user_crud.get_User_nickname(db,id=user_id)
+        db.refresh(db_groupnew)
+        Group_willuse = db_groupnew
+    if Track_willuse.alone == True:
+        group_crud.add_participation(db,user_id=user_id,group_id=Group_willuse.id,cheating_count=Track_willuse.cheating_count)
+        group_crud.update_group_mealday_pushing_start(db,user_id=user_id, track_id=track_id, date=date, group_id= Group_willuse.id,duration=Track_willuse.duration)
+    if Track_willuse.alone == False:
+        group_crud.update_group_mealday_pushing_start(db,user_id=user_id, track_id=track_id, date=date, group_id= Group_willuse.id, duration=Track_willuse.duration)
+    nickname = user_crud.get_User_nickname(db,id=user_id)
     return {"trackname" : Track_willuse.name, "nickname" : nickname}

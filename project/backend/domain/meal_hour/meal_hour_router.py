@@ -53,15 +53,15 @@ async def get_mealhour_picture(id: int, time: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/upload_temp") ## 임시로 파일을 firebase저장하고 yolo서버로 전송
-async def upload_food(file: UploadFile = File(...)):
+@router.post("/upload_temp/{user_id}") ## 임시로 파일을 firebase저장하고 yolo서버로 전송
+async def upload_food(user_id:int, file: UploadFile = File(...)):
     """
     식단시간별(MealHour) 사진 입력시 firebase에 임시저장 및 yolo서버로부터 food정보 Get : 10page 2번
-     - 입력예시 : 사진파일
+     - 입력예시 : 사진파일, user_id
      - 출력 : file_path, food_info, image_url
     """
     # 고유한 파일 이름 생성
-    file_id = str(uuid.uuid4())
+    file_id = meal_hour_crud.create_file_name(user_id=user_id)
 
     #Firebase Storage에 파일 업로드
     temp_blob = bucket.blob(f"temp/{file_id}")

@@ -20,6 +20,7 @@ from starlette.responses import RedirectResponse, JSONResponse
 from starlette.config import Config
 from database import get_db
 from domain.mentor import mentor_crud
+from domain.meal_hour import meal_hour_crud
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import pwd_context
 from models import User
@@ -742,7 +743,7 @@ async def upload_profile_picture(id: int, file: UploadFile = File(...), db: Sess
             raise HTTPException(status_code=404, detail="User not found")
 
         # 고유한 파일 이름 생성
-        file_id = str(uuid.uuid4())
+        file_id = meal_hour_crud.create_file_name(user_id=id)
         blob = bucket.blob(f"profile_pictures/{file_id}")
 
         # 파일 업로드

@@ -153,9 +153,9 @@ def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
             using_track = track_crud.get_Track_bytrack_id(db,track_id=meal_day.track_id)
             if using_track:
                 track_name = using_track.name
-            group_info = group_crud.get_group_by_date_track_id(db,user_id=user.id, date=date,track_id=meal_day.track_id)
+            group_info = group_crud.get_group_by_date_track_id_in_part(db,user_id=user.id, date=date,track_id=meal_day.track_id)
             if group_info and group_info is not None:
-                group, cheating_count, user_id2 = group_info
+                group, cheating_count, user_id2, flag, finish_date =group_info
                 dday= (date - group.start_day).days + 1
 
         user_info = mentor_schema.Users_Info(

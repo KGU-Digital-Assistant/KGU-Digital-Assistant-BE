@@ -73,18 +73,18 @@ def get_TrackRoutine_track_title_calorie(user_id: int, time: str, db: Session = 
     if mealtoday is None:
         raise HTTPException(status_code=404, detail="MealDay not found")
     if mealtoday.track_id is None:
-        raise HTTPException(status_code=404, detail="No Use Track today")
+        return [{"title": None, "calorie": None}]
 
     # 요일을 정수로 얻기 (월요일=0, 일요일=6)
     weekday_number = date.weekday()
     # 요일을 한글로 얻기 (월요일=0, 일요일=6)
     weekday_str = ["월", "화", "수", "목", "금", "토", "일"][weekday_number]
 
-    group_info = group_crud.get_group_by_date_track_id(db, user_id=user_id, date=date, track_id=mealtoday.track_id)
+    group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=user_id, date=date, track_id=mealtoday.track_id)
     if group_info is None:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    group, cheating_count, user_id2 = group_info
+    group, cheating_count, user_id2, flag, finish_date =group_info
     solodate = date - group.start_day
     days = str(solodate.days + 1)
 

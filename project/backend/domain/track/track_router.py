@@ -72,6 +72,13 @@ def get_Track_id(user_id: int, db: Session = Depends(get_db)):
 
 @router.get("/get/{user_id}/mytracks", response_model=List[track_schema.Track_list_get_schema])
 def get_Track_mylist(user_id: int, db:Session = Depends(get_db)):
+    """
+    보유 트랙 정보 표시 : 19page 2-3번(개인트랙)
+     - 입력예시 : user_id = 1
+     - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
+     - 빈출력 = track 없음
+     - Track.start_day가 느린순으로 출력
+    """
     tracklist = track_crud.get_Track_mine_title_all(db,user_id=user_id)
     if tracklist is None:
         raise HTTPException(status_code=404, detail="Track not found")
@@ -89,7 +96,7 @@ def get_Track_sharelist(user_id: int, db:Session = Depends(get_db)):
 @router.get("/get/{user_id}/alltracks", response_model=List[track_schema.Track_list_get_schema])
 def get_track_all_list(user_id: int, db:Session = Depends(get_db)):
     """
-    보유 트랙 정보 표시 : 19page 2-3번
+    보유 트랙 정보 표시 : 19page 2-3번(초대트랙) 공유제외
      - 입력예시 : user_id = 1
      - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
      - 빈출력 = track 없음
@@ -113,22 +120,20 @@ def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
         raise HTTPException(status_code=404, detail="Track not found")
     username=user_crud.get_User_name(db,id=tracks.user_id)
     today=datetime.utcnow().date()+ timedelta(hours=9)
-    #트랙을 사용중인 그룹 회원 수
-    groups_count=group_crud.get_group_by_date_track_id_all(db,date=today,track_id=track_id)
-    if not groups_count:
-        count = 0
-    else:
-        count = len(groups_count)
+    #트랙을 공유한 횟수
+    count = tracks.count
     #그룹 정보여부
-    group_one=group_crud.get_group_by_date_track_id(db,user_id=user_id,date=today,track_id=track_id)
+    group_one=group_crud.get_group_by_date_track_id_in_part(db,user_id=user_id,date=today,track_id=track_id)
     if group_one and group_one is not None:
-        group, cheating_count, user_id2 =group_one
-        startday = group.start_day
-        finishday = group.finish_day
+        group, cheating_count, user_id2, flag, finish_date =group_one
+        group_startday = group.start_day
+        group_finishday = group.finish_day
+        real_finishday=finish_date
     else:
-        startday=None
-        finishday=None
-
+        group_startday=None
+        group_finishday=None
+    # calorie 계산
+    calorie = track_routine_crud.get_calorie_average(track_id=track_id,db=db)
     trackroutins=track_routine_crud.get_TrackRoutine_bytrack_id(db, track_id=track_id)
     repeat=[]
     solo=[]
@@ -149,10 +154,13 @@ def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
     return {
         "track_name": tracks.name,
         "name": username,
-        "start_day": startday,
-        "finish_day": finishday,
+        "track_start_day": tracks.start_date,
+        "track_finish_day": tracks.finish_date,
+        "group_start_day": group_startday,
+        "group_finish_day": group_finishday,
+        "real_finish_day": real_finishday,
         "duration": tracks.duration,
-        "caloire" : tracks.goal_calorie,
+        "caloire" : calorie,
         "count" : count,
         "repeatroutin": repeat,
         "soloroutin": solo
