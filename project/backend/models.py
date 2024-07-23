@@ -1,15 +1,20 @@
-from sqlalchemy import Date,Column,Integer,ForeignKey,String,Float,DateTime,Text,Boolean,UniqueConstraint,Interval, Table, Enum as SQLAEnum
+from sqlalchemy import Date,Column,Integer,ForeignKey,String,Float,DateTime,Text,Boolean,UniqueConstraint,Interval, Table, Enum as SqlEnum
 from sqlalchemy.orm import relationship
 from database import Base
-from enum import Enum as PyEnum
+from enum import Enum
+
+class FlagStatus(Enum):
+    ready = "ready"
+    started = "started"
+    terminated = "terminated"
 
 Participation = Table(
     'Participation', Base.metadata,
     Column('user_id', Integer, ForeignKey('User.id'), primary_key=True), ## 그룹가입 user(회원들)
     Column('group_id', Integer, ForeignKey('Group.id'), primary_key=True), ## 그룹id
     Column('cheating_count', Integer, nullable=True), ##치팅 횟수
-    Column('flag', Boolean), #None == ready, False = Terminated, True = Started
-    Column('finish_date', Date, nullable=True) #실제종료일 입력
+    Column('flag', SqlEnum(FlagStatus, native_enum=False), nullable=False, default=FlagStatus.ready), # Enum 타입 문자열
+    Column('finish_date', Date, nullable=True) # 실제 종료일 입력
 )
 
 class User(Base):  # 회원
