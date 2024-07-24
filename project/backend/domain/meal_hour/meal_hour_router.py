@@ -1,14 +1,17 @@
 import os
 from typing import List
 from datetime import datetime, timedelta
-from models import MealDay, MealHour, TrackRoutine
+from models import MealDay, MealHour, TrackRoutine,User, Mentor
+from firebase_config import send_fcm_data_noti,send_fcm_notification
 from fastapi import APIRouter, Form,File,Depends, HTTPException,UploadFile
 from sqlalchemy.orm import Session
 from sqlalchemy import or_,and_
 from starlette import status
 from database import get_db
+from domain.user import user_crud
 from domain.meal_hour import meal_hour_schema,meal_hour_crud
 from domain.meal_day import  meal_day_crud
+from domain.user.user_router import get_current_user
 from firebase_config import bucket
 import json
 import uuid
@@ -17,7 +20,18 @@ router=APIRouter(
     prefix="/meal_hour"
 )
 
-@router.get("/get/{user_id}/{time}", response_model=meal_hour_schema.MealHour_schema)
+@router.get("/get/{user_id}/{time}/mine", response_model=meal_hour_schema.MealHour_schema)
+def get_MealHour_date(time:str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    식단시간별(MealHour) 전체 Column 조회 : 9page 6-1번, 9page 6-2번 (기록날짜, 게시글),
+     - 입력예시 : user_id = 1, time = 2024-06-01아침 / user_id = 2, time = 2024
+    """
+    User_Meal = meal_hour_crud.get_User_Meal(db,user_id=current_user.id,time=time)
+    if User_Meal is None:
+        raise HTTPException(status_code=404, detail="Meal not found")
+    return User_Meal  ## 전체 열 출력
+
+@router.get("/get/{user_id}/{time}/formentor", response_model=meal_hour_schema.MealHour_schema)
 def get_MealHour_date(user_id: int, time:str, db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 전체 Column 조회 : 9page 6-1번, 9page 6-2번 (기록날짜, 게시글),
@@ -28,7 +42,7 @@ def get_MealHour_date(user_id: int, time:str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Meal not found")
     return User_Meal  ## 전체 열 출력
 
-@router.get("/get_mealhour_picture/{id}/{time}")
+@router.get("/get_mealhour_picture/{id}/{time}/mine")
 async def get_mealhour_picture(id: int, time: str, db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 사진 조회 : 12page 2-2번
@@ -52,16 +66,40 @@ async def get_mealhour_picture(id: int, time: str, db: Session = Depends(get_db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/get_mealhour_picture/{id}/{time}/formentor")
+async def get_mealhour_picture(time: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    식단시간별(MealHour) 사진 조회 : 17page 4번
+     - 입력예시 : user_id = 1, time = 2024-06-01아침
+     - 출력 : image_url
+    """
+    try:
+        # 사용자 조회
+        mealhour = meal_hour_crud.get_User_Meal(db,user_id=current_user.id,time=time)
+        if mealhour is None:
+            raise HTTPException(status_code=404, detail="Mealhour not found")
+
+        if not mealhour.picture:
+            raise HTTPException(status_code=404, detail="Picture not found")
+
+        # 서명된 URL 생성 (URL은 1시간 동안 유효)
+        blob = bucket.blob(mealhour.picture)
+        signed_url = blob.generate_signed_url(expiration=timedelta(hours=1))
+
+        return {"image_url": signed_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/upload_temp/{user_id}") ## 임시로 파일을 firebase저장하고 yolo서버로 전송
-async def upload_food(user_id:int, file: UploadFile = File(...)):
+async def upload_food(current_user: User = Depends(get_current_user), file: UploadFile = File(...)):
     """
     식단시간별(MealHour) 사진 입력시 firebase에 임시저장 및 yolo서버로부터 food정보 Get : 10page 2번
      - 입력예시 : 사진파일, user_id
      - 출력 : file_path, food_info, image_url
     """
     # 고유한 파일 이름 생성
-    file_id = meal_hour_crud.create_file_name(user_id=user_id)
+    file_id = meal_hour_crud.create_file_name(user_id=current_user.id)
 
     #Firebase Storage에 파일 업로드
     temp_blob = bucket.blob(f"temp/{file_id}")
@@ -85,17 +123,17 @@ async def upload_food(user_id:int, file: UploadFile = File(...)):
     return {"file_path": temp_blob.name, "food_info": food_info, "image_url": url} ## 임시파일이름, food정보, url 반환
 
 @router.delete("/remove/{user_id}/{time}")
-async def remove_meal(user_id: int, time:str,db:Session = Depends(get_db)):
+async def remove_meal(time:str,current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
      """
      식단시간별(MealHour) 사진 입력시 firebase에 임시저장 및 yolo서버로부터 food정보 Get : 10page 2번
       - 입력예시 : user_id = 1, time = 2024-06-01아침
       - 출력 : file_path, food_info, image_url
      """
-     meal = meal_hour_crud.get_User_Meal(db,user_id=user_id,time=time)
+     meal = meal_hour_crud.get_User_Meal(db,user_id=current_user.id,time=time)
      if meal is None:
          raise HTTPException(status_code=404, detail="Meal not found")
 
-     daily_post=minus_daily_post(db,user_id=user_id,new_food=meal)
+     daily_post=minus_daily_post(db,user_id=current_user.id,new_food=meal)
 
      blob = bucket.blob(meal.picture)
 
@@ -108,7 +146,7 @@ async def remove_meal(user_id: int, time:str,db:Session = Depends(get_db)):
 
 
 @router.post("/register_meal/{user_id}/{time}") ## 등록시 임시업로드에 사용한데이터 입력필요 (임시사진이름file_path, food_info, text)
-async def register_meal(user_id: int, time: str, file_path: str = Form(...), food_info: str = Form(...),text:str = Form(...), db: Session = Depends(get_db)):
+async def register_meal(time: str, file_path: str = Form(...), food_info: str = Form(...),text:str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 등록 (/meal_hour/upload_temp api로 얻은 data 활용 : 10page 4번
      - 입력예시 : user_id = 1, time = 2024-06-01점심, file_paht, food_info, text = 오늘점심등록햇당
@@ -135,15 +173,15 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
     #food_info를 Json에서 파싱
     food_info_dict = json.loads(food_info)
 
-    daymeal_id = db.query(MealDay.id).filter(MealDay.user_id==user_id,MealDay.date==date).first()
+    daymeal_id = db.query(MealDay.id).filter(MealDay.user_id==current_user.id,MealDay.date==date).first()
 
     new_food = MealHour(
-        user_id=user_id,
+        user_id=current_user.id,
         name=food_info_dict.get("name",""),
         picture=meal_blob.name,
         text=text,
         date=datetime.utcnow()+ timedelta(hours=9),  # 현재 시간을 기본값으로 설정
-        heart=food_info_dict.get("heart", False),
+        heart=False,
         time=time,
         carb=food_info_dict.get("carb", 0.0),
         protein=food_info_dict.get("protein", 0.0),
@@ -155,9 +193,9 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
         daymeal_id=daymeal_id
     )
 
-    daily_post = plus_daily_post(db, user_id, new_food)
+    daily_post = plus_daily_post(db, current_user.id, new_food)
 
-    mealtoday = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date)
+    mealtoday = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date)
     weekday_number = date.weekday()
     weekday_str = ["월", "화", "수", "목", "금", "토", "일"][weekday_number]
     tracktitle = db.query(TrackRoutine.title).filter(
@@ -176,7 +214,7 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
         goal=True
 
     add_food = MealHour(
-        user_id=user_id,
+        user_id=current_user.id,
         name=food_info_dict.get("name",""),
         picture=meal_blob.name,
         text=text,
@@ -196,19 +234,19 @@ async def register_meal(user_id: int, time: str, file_path: str = Form(...), foo
     db.commit()
     db.refresh(add_food)
 
-#    username = user_crud.get_User_name(db,user_id)
-#    mealtime = time[-2:]
-#    mentor_id = db.query(User.mentor_id).filter(User.id==user_id).first()
-#    if mentor_id:
-#        mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).first()
-#        if mentor_user_id:
-#            data = {
-#                "user_id": user_id,
-#                "mentor_id" : mentor_id,
-#                "message": f"{username}님이 f{mealtime}을 등록했습니다."
-#            }
-#
-#            send_fcm_data_noti(mentor_user_id,"회원식사등록", data["message"],data)
+    username = user_crud.get_User_name(db,current_user.id)
+    mealtime = time[10:]
+    mentor_id = db.query(User.mentor_id).filter(User.id==current_user.id).first()
+    if mentor_id:
+        mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).first()
+        if mentor_user_id:
+            data = {
+                "user_id": current_user.id,
+                "mentor_id" : mentor_id,
+                "message": f"{username}님이 f{mealtime}을 등록했습니다."
+            }
+
+            send_fcm_data_noti(mentor_user_id,"회원식사등록", data["message"],data)
 
     return {"food": add_food, "daily_post": daily_post, "signed_url": signed_url}
 
@@ -227,17 +265,17 @@ async def remove_temp_meal(file_path: str = Form(...)):
     return {"detail": "Temporary file removed"}
 
 @router.patch("/update/{user_id}/{daytime}/gram", status_code=status.HTTP_204_NO_CONTENT)
-def update_meal_gram(user_id: int,time: str, size: float = Form(...), db: Session = Depends(get_db)):
+def update_meal_gram(time: str, size: float = Form(...), current_user: User = Depends(get_current_user),db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 음식 size 수정 : 12page 3-2번
      - 입력예시 : user_id = 1, time = 2024-06-01아침
      - 출력 : MealHour.calorie, MealHour.carb, MealHour.protein, MealHour.fat
     """
-    mealgram = meal_hour_crud.get_User_Meal(db,user_id=user_id,time=time)
+    mealgram = meal_hour_crud.get_User_Meal(db,user_id=current_user.id,time=time)
     if mealgram is None:
         raise HTTPException(status_code=404, detail="MealHourly not found")
 
-    minus_daily_post(db,user_id=user_id,new_food=mealgram)
+    minus_daily_post(db,user_id=current_user.id,new_food=mealgram)
 
     old_size = mealgram.size
     if old_size == 0:
@@ -252,7 +290,7 @@ def update_meal_gram(user_id: int,time: str, size: float = Form(...), db: Sessio
     db.commit()
     db.refresh(mealgram)
 
-    plus_daily_post(db, user_id=user_id, new_food=mealgram)
+    plus_daily_post(db, user_id=current_user.id, new_food=mealgram)
 
     return mealgram
 
@@ -300,13 +338,13 @@ def minus_daily_post(db: Session, user_id: int,new_food: MealHour):
     return daily_post
 
 @router.get("/get/{user_id}/{daytime}/daymeal", response_model=List[meal_hour_schema.MealHour_daymeal_get_schema])
-def get_MealHour_date_all(user_id: int, daytime:str, db: Session = Depends(get_db)):
+def get_MealHour_date_all(daytime:str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     해당일 등록 식단Time, name 출력 : 13page 2-1번
      - 입력예시 : user_id = 1, time = 2024-06-01아침
      - 출력 : 당일 식단게시글[MealHour.time, MealHour.name]
     """
-    User_Meal = meal_hour_crud.get_User_Meal_all_name_time(db,user_id=user_id,time=daytime)
+    User_Meal = meal_hour_crud.get_User_Meal_all_name_time(db,user_id=current_user.id,time=daytime)
 
     if User_Meal is None:
         raise HTTPException(status_code=404, detail="Comments not found")
@@ -331,14 +369,14 @@ def update_MealHour_heart(user_id: int, time: str, db:Session=Depends(get_db)):
     db.commit()
     db.refresh(User_Meal)
 
-#    if User_Meal.heart == True:
-#        mentor_id = db.query(User.mentor_id).filter(User.id==user_id).first()
-#        if mentor_id:
-#            mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).first()
-#            if mentor_user_id:
-#                mealtime = time[-2:]
-#                mentor_name=user_crud.get_User_name(db,mentor_user_id)
-#                send_fcm_notification(user_id,"하트등록",f"{mentor_name}님이 {mealtime}식단을 칭찬했어요")
+    if User_Meal.heart == True:
+        mentor_id = db.query(User.mentor_id).filter(User.id==user_id).first()
+        if mentor_id:
+            mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).first()
+            if mentor_user_id:
+                mealtime = time[10:]
+                mentor_name=user_crud.get_User_name(db,mentor_user_id)
+                send_fcm_notification(user_id,"하트등록",f"{mentor_name}님이 {mealtime}식단을 칭찬했어요")
 
     return User_Meal
 
@@ -349,8 +387,20 @@ def get_MealHour_date_all(user_id: int, daytime:str, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Comments not found")
     return User_Meal  ## TIME ##time에 날짜만입력
 
-@router.get("/get/{user_id}/{time}/track", response_model=meal_hour_schema.MealHour_track_get_schema)
-def get_MealHour_track_goal(user_id: int, time:str, db:Session =Depends(get_db)):
+@router.get("/get/{user_id}/{time}/track/mine", response_model=meal_hour_schema.MealHour_track_get_schema)
+def get_MealHour_track_goal_user(time:str, current_user: User = Depends(get_current_user), db:Session =Depends(get_db)):
+    """
+    식단시간별(MealHour) track 지킴 유무 조회 : 12page 6-1번
+     - 입력예시 : user_id = 1, time = 2024-06-01아침
+     - 출력 : MealHour.track_goal
+    """
+    mealhour=meal_hour_crud.get_User_Meal(user_id=current_user.id,time=time,db=db)
+    if mealhour is None:
+        raise HTTPException(status_code=404, detail="MealHour not found")
+    return {"track_goal" : mealhour.track_goal}
+
+@router.get("/get/{user_id}/{time}/track/formentor", response_model=meal_hour_schema.MealHour_track_get_schema)
+def get_MealHour_track_goal_mentor(user_id: int, time:str, db:Session =Depends(get_db)):
     """
     식단시간별(MealHour) track 지킴 유무 조회 : 12page 6-1번
      - 입력예시 : user_id = 1, time = 2024-06-01아침
@@ -361,10 +411,27 @@ def get_MealHour_track_goal(user_id: int, time:str, db:Session =Depends(get_db))
         raise HTTPException(status_code=404, detail="MealHour not found")
     return {"track_goal" : mealhour.track_goal}
 
-@router.patch("/update/{user_id}/{time}/track", status_code=status.HTTP_204_NO_CONTENT)
-def update_Mealhour_track_goal(user_id:int, time:str, db:Session=Depends(get_db)):
+@router.patch("/update/{user_id}/{time}/track/mine", status_code=status.HTTP_204_NO_CONTENT)
+def update_Mealhour_track_goal_user(time:str, current_user: User = Depends(get_current_user), db:Session=Depends(get_db)):
     """
     식단시간별(MealHour) track 지킴 유무 없뎃 : 12page 6-2번
+     - 입력예시 : user_id = 1, time = 2024-06-01아침
+    """
+    mealhour=meal_hour_crud.get_User_Meal(user_id=current_user.id,time=time,db=db)
+    if mealhour is None:
+        raise HTTPException(status_code=404, detail="MealHour not found")
+    if mealhour.track_goal == True:
+        mealhour.track_goal = False
+    else:
+        mealhour.track_goal = True
+    db.commit()
+    db.refresh(mealhour)
+    return {"detail" : "track_goal updated successfully"}
+
+@router.patch("/update/{user_id}/{time}/track/formentor", status_code=status.HTTP_204_NO_CONTENT)
+def update_Mealhour_track_goal_mentor(user_id:int, time:str, db:Session=Depends(get_db)):
+    """
+    식단시간별(MealHour) track 지킴 유무 없뎃 : 17page 8번
      - 입력예시 : user_id = 1, time = 2024-06-01아침
     """
     mealhour=meal_hour_crud.get_User_Meal(user_id=user_id,time=time,db=db)

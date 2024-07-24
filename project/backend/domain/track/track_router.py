@@ -6,6 +6,7 @@ from starlette import status
 from datetime import datetime, timedelta
 from database import get_db
 from domain.user import user_router, user_crud
+from domain.user.user_router import get_current_user
 from models import Track, User, TrackRoutine
 from domain.group import group_crud
 from domain.track_routine import track_routine_crud,track_routine_schema
@@ -71,45 +72,52 @@ def get_Track_id(user_id: int, db: Session = Depends(get_db)):
     return tracks
 
 @router.get("/get/{user_id}/mytracks", response_model=List[track_schema.Track_list_get_schema])
-def get_Track_mylist(user_id: int, db:Session = Depends(get_db)):
+def get_Track_mylist(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
     """
-    보유 트랙 정보 표시 : 19page 2-3번(개인트랙)
+    보유 트랙 정보 표시 : 19page 2-3번(개인트랙) *보류*
      - 입력예시 : user_id = 1
      - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
      - 빈출력 = track 없음
      - Track.start_day가 느린순으로 출력
     """
-    tracklist = track_crud.get_Track_mine_title_all(db,user_id=user_id)
+    tracklist = track_crud.get_Track_mine_title_all(db,user_id=current_user.id)
     if tracklist is None:
         raise HTTPException(status_code=404, detail="Track not found")
         return 0
     return tracklist
 
 @router.get("/get/{user_id}/sharetracks", response_model=List[track_schema.Track_list_get_schema])
-def get_Track_sharelist(user_id: int, db:Session = Depends(get_db)):
-    tracklist = track_crud.get_Track_share_title_all(db,user_id=user_id)
+def get_Track_sharelist(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
+    """
+    보유 트랙 정보 표시 : 19page 2-3번(공유트랙)  *보류*
+     - 입력예시 : user_id = 1
+     - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
+     - 빈출력 = track 없음
+     - Track.start_day가 느린순으로 출력
+    """
+    tracklist = track_crud.get_Track_share_title_all(db,user_id=current_user.id)
     if tracklist is None:
         raise HTTPException(status_code=404, detail="Track not found")
         return 0
     return tracklist
 
 @router.get("/get/{user_id}/alltracks", response_model=List[track_schema.Track_list_get_schema])
-def get_track_all_list(user_id: int, db:Session = Depends(get_db)):
+def get_track_all_list(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
     """
-    보유 트랙 정보 표시 : 19page 2-3번(초대트랙) 공유제외
+    보유 트랙 정보 표시 : 19page 2-3번(초대트랙)(만들어놓은 트랙 + 초대받아 시작한트랙)
      - 입력예시 : user_id = 1
      - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
      - 빈출력 = track 없음
      - Track.start_day가 느린순으로 출력
     """
-    tracklist = track_crud.get_track_title_all(db,user_id=user_id)
+    tracklist = track_crud.get_track_title_all(db,user_id=current_user.id)
     if tracklist is None:
         raise HTTPException(status_code=404, detail="Track not found")
     return tracklist
 
 
 @router.get("/get/{user_id}/{track_id}/Info", response_model=track_schema.Track_get_Info)
-def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
+def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user), db:Session=Depends(get_db)):
     """
     트랙상세보기 : 23page 0번
      - 입력예시 : user_id = 1, track_id = 2
@@ -123,7 +131,7 @@ def get_Track_Info(user_id: int, track_id: int, db:Session=Depends(get_db)):
     #트랙을 공유한 횟수
     count = tracks.count
     #그룹 정보여부
-    group_one=group_crud.get_group_by_date_track_id_in_part(db,user_id=user_id,date=today,track_id=track_id)
+    group_one=group_crud.get_group_by_date_track_id_in_part(db,user_id=current_user.id,date=today,track_id=track_id)
     if group_one and group_one is not None:
         group, cheating_count, user_id2, flag, finish_date =group_one
         group_startday = group.start_day

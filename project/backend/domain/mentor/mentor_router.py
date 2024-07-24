@@ -8,6 +8,7 @@ from database import get_db
 from domain.group import group_crud
 from domain.meal_day import meal_day_crud
 from domain.mentor.mentor_crud import create_mentor, update_mentor_gym, mentor_delete, matching_mentor
+from domain.user.user_router import get_current_user
 from domain.mentor import mentor_schema, mentor_crud
 from domain.track import track_crud
 from models import Mentor, User, MealHour, MealDay
@@ -103,21 +104,21 @@ def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db
     return Users
 
 @router.get("/findUser/{id}",response_model=List[mentor_schema.find_User])
-def find_User(id: int, name:str = Query(...), db: Session = Depends(get_db)):
+def find_User(current_user: User = Depends(get_current_user), name:str = Query(...), db: Session = Depends(get_db)):
     """
-    회원들  : 15page 1번
-     - 입력예시 : Mentor.user_id = 1
+    회원들  : 15page 1번 멘토가 회원찾는거
+     - 입력예시 : Mentor.user_id = 1, User.name
      - 출력 : 회원목록[User.id, User.name]
     """
-    Users = mentor_crud.get_Users_byMentor_name(db, user_id=id, name=name)
+    Users = mentor_crud.get_Users_byMentor_name(db, user_id=current_user.id, name=name)
     if Users is None:
         raise HTTPException(status_code=404, detail="Users not found")
     return Users
 
 @router.get("/getUserInfo/{id}/{daytime}", response_model=mentor_schema.Mentor_get_UserInfo_schema)
-def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
+def get_Mentors_User(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    회원들리스트 정보(당일 Calorie, 식단내용 등) 조회 : 15page 4번
+    회원들리스트 정보(당일 Calorie, 식단내용 등) 조회 : 15page 4번 - 멘토가 회원리스트 조회
      - 입력예시 : user_id = 1, daytime = 2024-06-01
      - 출력 : 회원들리스트정보 출력
     """
@@ -126,7 +127,7 @@ def get_Mentors_User(id: int, daytime: str,db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    Users = mentor_crud.get_Users_name_rank_byMentor(db,user_id=id)
+    Users = mentor_crud.get_Users_name_rank_byMentor(db,user_id=current_user.id)
     if Users is None:
         raise HTTPException(status_code=404, detail="Users not found")
     result=[]
