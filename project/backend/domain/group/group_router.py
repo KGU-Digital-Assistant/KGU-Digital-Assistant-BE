@@ -7,10 +7,13 @@ from sqlalchemy.orm import Session
 from starlette import status
 from starlette.config import Config
 from starlette.responses import JSONResponse
-from datetime import datetime, timedelta
 from domain.group.group_schema import GroupCreate, GroupSchema, GroupDate, GroupStatus
+from datetime import datetime, timedelta, date
+from domain.meal_hour import meal_hour_crud
 from domain.meal_day import meal_day_crud
 from domain.user import user_crud
+from domain.user.user_router import get_current_user
+from domain.track_routine import track_routine_crud
 from domain.track import track_crud
 from domain.group import group_crud
 from domain.user import user_router
@@ -219,102 +222,114 @@ def accept_invitation(group_id: int,
 #########################################
 
 @router.get("/get/{user_id}/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
-def get_Comment_date_user_id_text(user_id: int, daytime: str, db: Session = Depends(get_db)):
+def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    해당일 Track 사용시 Track.name, D-day 조회 : 9page 2번
+     - 입력예시 : user_id = 1, time = 2024-06-01
+     - 출력 : Track.name, Dday
+    """
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    meal_day = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date)
+    if meal_day is None:
+        raise HTTPException(status_code=404, detail="MealDay not found")
+    track_name = None
+    dday = None
+    if meal_day and meal_day.track_id:
+        using_track = track_crud.get_Track_bytrack_id(db, track_id=meal_day.track_id)
+        if using_track:
+            track_name = using_track.name
+        group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=date, track_id=meal_day.track_id)
+        if group_info and group_info is not None:
+            group, cheating_count, user_id2, flag, finish_date =group_info
+            dday = (date - group.start_day).days + 1
+    return {"name": track_name, "dday":dday} ##name, d-day 열출력
+
+@router.get("/get/{user_id}/{track_id}/{daytime}/name", response_model=group_schema.Group_get_track_name_schema)
+def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
+    """
+    트랙 시작전 사용중이였던 Track.name(old)(사용중~사용예정트랙들) / Track.name(new) 조회 : 23page 1-1번, 23page 1-2번
+     - 입력예시 : user_id=1, daytime = 2024-06-01, track_id = 14
+     - 출력 : Track.name(old), Track.name(new)
+    """
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
+    if Track_willuse is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+    finish_date=date +timedelta(days=Track_willuse.duration)
+    trackids = group_crud.get_track_id_all_in_date(db,start_date=date,finish_date=finish_date,user_id=current_user.id)
+    name_list=[]
+    seen_trackname =set() #중복 track_id 확인용
+    for track_id_iter in trackids:
+        track_info=track_crud.get_Track_bytrack_id(db,track_id=track_id_iter)
+        if track_info.name not in seen_trackname:
+            name_list.append(track_info.name)
+            seen_trackname.add(track_info.name)
+    tracknewrow = track_crud.get_Track_bytrack_id(db,track_id=track_id)
+    if tracknewrow and tracknewrow.name:
+        tracknew = tracknewrow.name
+    else:
+        tracknew = None
+
+    return {"trackold" : name_list, "tracknew" : tracknew}
+    ## 현재사용중인것만 이름표시할 경우
+#    date = datetime.utcnow().date() + timedelta(hours=9)
+#    mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+#    if mealtoday and mealtoday.track_id:
+#        trackoldrow=track_crud.get_Track_bytrack_id(db,track_id=mealtoday.track_id)
+#        trackold = trackoldrow.name
+#    else:
+#        trackold= None
+#    tracknewrow = track_crud.get_Track_bytrack_id(db,track_id=track_id)
+#    if tracknewrow and tracknewrow.name:
+#        tracknew = tracknewrow.name
+#    else:
+#        tracknew = None
+#    return {"trackold" : trackold, "tracknew" : tracknew}
+
+
+@router.post("/start_track/{user_id}/{track_id}/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
+def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User = Depends(get_current_user),db: Session= Depends(get_db)):
+    """
+    트랙 시작하기 (기존 Mealday의 track_id, goal_calorie 변경 -> 기존 group 종료일 변경 -> 새로운 Group의 시작종료일세팅 ->Mealday 정보수정
+     - 입력예시 : user_id = 1, track_id = 14
+     - 출력 : Track.name, User.nickname
+       코드 순서 = mealday tbl 없는경우 생성 -> 시작할 트랙 기간 start~finish 날짜 사이에 예정된 트랙있는 경우(but 트
+        해당 트랙들에 정해진 mealday값들 초기화 및 참여tbl flag, 종료일 변경 -> 새 group tbl 시작일 종료일 설정
+         -> 새 참여 tbl flag, 종료일 설정 -> mealday에 new_track정보 입력
+      트랙시작시점에 group의 state = started, participtaion의 flag는 finish_Date 도달시 false로 변경, 모두 false가 돼면 해당일에 group state = terminated 로 변경
+    """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    groups = group_crud.get_Group_bydate(db, user_id=user_id, date=date)
-    if groups is None:
-        raise HTTPException(status_code=404, detail="Comments not found")
-    name=groups.name
-    dday=groups.finish_day - date
-    return {"name": name, "dday":dday} ##name, d-day 열출력
-
-@router.get("/get/{track_id}/name", response_model=group_schema.Group_get_track_name_schema)
-def get_track_name_before_startGroup(user_id: int, track_id, db:Session = Depends(get_db)):
-    date = datetime.utcnow().date()
-    mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
-    if mealtoday.track_id:
-        trackoldrow=track_crud.get_Track_bytrack_id(db,track_id=mealtoday.track_id)
-        trackold = trackoldrow.name
-    else:
-        trackold= None
-    tracknewrow = track_crud.get_Track_bytrack_id(db,track_id=track_id)
-    tracknew = tracknewrow.name
-    return {"trackold" : trackold, "tracknew" : tracknew}
-
-
-@router.post("/start_track/{user_id}/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
-def start_track_user_id_track_id(user_id: int, track_id: int, db: Session= Depends(get_db)):
-    current_date= datetime.utcnow().date()
-    current_datetime=datetime.utcnow()
     Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
     if Track_willuse is None:
         raise HTTPException(status_code=404, detail="Track not found")
-
-    groups = Group(   ## 기존 그룹에서 시작하기전 해당 내용복사하여 다시 트랙사용할때 쓸수잇도록함
-        track_id=track_id,
-        user_id=user_id,
-        start_day=current_date,
-        finish_day=current_date + timedelta(days=Track_willuse.duration)
-    )
-    db.add(groups)
-    db.commit()
-    db.refresh(groups)
-
-    date1 = current_datetime
-    mealtoday= meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=current_date)
-    if mealtoday and mealtoday.track_id and mealtoday.track_id >=1:
-        group_past= group_crud.get_Group_byuserid_track_id_bystartfinishday(db, user_id=user_id,track_id=mealtoday.track_id, date=current_date)
-        while date1 <= group_past.finish_day: ## 금일 ~ 과거 track 날짜까지 track_id, goalcalorie 초기화 // 트랙중도변경시
-            date0=date1.date()
-            mealold = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date0)
-            if mealold:
-                mealold.track_id=None
-                mealold.goalcalorie=0.0
-                db.add(mealold)
-                db.commit()
-                db.refresh(mealold)
-            date1 += timedelta(days=1)
-        group_past.finish_day = current_date - timedelta(days=1)
-        db.add(group_past)
+    Group_willuse = group_crud.get_Group_bytrack_id_state_ready(db, track_id=track_id)
+    if Group_willuse is None:
+        db_groupnew = Group(
+            track_id = track_id,
+            user_id = Track_willuse.user_id,
+            name = meal_hour_crud.create_file_name(user_id=current_user.id),
+            start_day = None,
+            finish_day = None,
+            state = 'ready'
+        )
+        db.add(db_groupnew)
         db.commit()
-        db.refresh(group_past) ## 중도포기한 트랙종료시점 작성
-
-    date2 = current_datetime
-    while date2 <= groups.finish_day:
-        date3=date2.date()
-        mealnew=meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date3)
-        if mealnew:
-            mealnew.track_id=track_id
-            mealnew.goalcalorie=Track_willuse.goal_calorie
-            db.add(mealnew)
-            db.commit()
-            db.refresh(mealnew)
-        else:
-            new_meal = MealDay(
-                user_id=user_id,
-                water=0.0,
-                coffee=0.0,
-                alcohol=0.0,
-                carb=0.0,
-                protein=0.0,
-                fat=0.0,
-                cheating=0,
-                goalcalorie=Track_willuse.goal_calorie,
-                nowcalorie=0.0,
-                gb_carb=None,
-                gb_protein=None,
-                gb_fat=None,
-                date=date3,
-                track_id=track_id  ## 트랙 user사용중일때 안할때 이거 변경해야할거같은데
-            )
-            db.add(new_meal)
-            db.commit()
-            db.refresh(new_meal)
-        date2 += timedelta(days=1)
-
-        nickname = user_crud.get_User_nickname(db,id=user_id)
+        db.refresh(db_groupnew)
+        Group_willuse = db_groupnew
+    if Track_willuse.alone == True:
+        group_crud.add_participation(db,user_id=current_user.id,group_id=Group_willuse.id,cheating_count=Track_willuse.cheating_count)
+        group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id,duration=Track_willuse.duration)
+    if Track_willuse.alone == False:
+        group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id, duration=Track_willuse.duration)
+    nickname = user_crud.get_User_nickname(db,id=current_user.id)
     return {"trackname" : Track_willuse.name, "nickname" : nickname}

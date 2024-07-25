@@ -81,9 +81,14 @@ class Track_create_schema(BaseModel):
 class Track_get_Info(BaseModel):
     track_name: str
     name: str
-    start_day: Optional[date]=None
-    finish_day: Optional[date]= None
+    track_start_day: Optional[date]=None
+    track_finish_day: Optional[date]= None
+    group_start_day: Optional[date]=None
+    group_finish_day: Optional[date]= None
+    real_finish_day: Optional[date]=None
     duration: Optional[int]= None
+    calorie: Optional[float] = None
+    count: Optional[int]=None
     repeatroutin: Optional[List[TrackRoutin_id_title]] = []
     soloroutin: Optional[List[TrackRoutin_id_title]] = []
 

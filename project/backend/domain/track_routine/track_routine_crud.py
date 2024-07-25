@@ -2,8 +2,10 @@ from datetime import date
 from typing import List
 
 from domain.track_routine import track_routine_schema
+from domain.group import group_crud
 from models import TrackRoutine
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
 from fastapi import HTTPException
 
 def get_TrackRoutine_by_track_id(db: Session, track_id:int):
@@ -57,11 +59,41 @@ def get_track_routine_by_track_id(db: Session, track_id:int):
 
     return track_routines
 
-def get_trackRoutine_days(db: Session, user_id: int, track_id: int, start_day:date,finish_day:date):
+def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int, track_id: int, date: date) -> float:
+    # 요일을 정수로 얻기 (월요일=0, 일요일=6)
+    weekday_number = date.weekday()
+    # 요일을 한글로 얻기 (월요일=0, 일요일=6)
+    weekday_str = ["월", "화", "수", "목", "금", "토", "일"][weekday_number]
+    days_str = str(days) + ','
 
+    # 요일과 날짜에 맞는 트랙 루틴 조회
+    results = db.query(TrackRoutine).filter(
+        and_(
+            TrackRoutine.track_id == track_id,
+            or_(
+                TrackRoutine.week.like(f"%{weekday_str}%"),
+                TrackRoutine.date.like(f"%{days_str}%"),
+            )
+        )
+    ).all()
 
-    return
+    calorie = 0.0
+    if not results:
+        return calorie
 
+    for result in results:
+        # 쉼표의 개수만큼 칼로리를 곱하도록 수정
+        count_time = result.time.count(',') + 1 if result.time else 1
+        calorie += (count_time * result.calorie)
+        calorie -= result.calorie
+
+    return calorie
+def get_calorie_average(track_id: int, db: Session):
+    routines = db.query(TrackRoutine).filter(TrackRoutine.track_id==track_id).all()
+    sum = 0
+    for routine in routines:
+        sum += routine.calorie
+        
 
 def update_routine(_routine_id: int, _routine: track_routine_schema.TrackRoutineCreate, db: Session):
     db_routine = db.query(TrackRoutine).filter(TrackRoutine.id==_routine_id).first()

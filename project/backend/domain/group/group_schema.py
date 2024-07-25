@@ -1,6 +1,6 @@
 import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 
 from fastapi.openapi.models import Schema
 from pydantic import BaseModel, field_validator
@@ -52,12 +52,12 @@ class Group_schema(BaseModel):
     finish_day: datetime.date
 
 class Group_name_dday_schema(BaseModel):
-    name: str
-    dday: int
+    name: Optional[str]=None
+    dday: Optional[int]=None
 
 class Group_get_track_name_schema(BaseModel):
-    trackold: Optional[str] = None
-    tracknew: str
+    trackold: Optional[List[str]] = None
+    tracknew: Optional[str] = None
 
 
 class GroupDate(BaseModel):
