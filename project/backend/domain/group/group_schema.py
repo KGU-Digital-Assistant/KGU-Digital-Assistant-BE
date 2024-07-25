@@ -6,6 +6,12 @@ from fastapi.openapi.models import Schema
 from pydantic import BaseModel, field_validator
 
 
+class GroupStatus(Enum):
+    READY = "READY"
+    STARTED = "STARTED"
+    TERMINATED = "TERMINATED"
+
+
 class GroupCreate(BaseModel):
     name: str
     start_day: datetime.date

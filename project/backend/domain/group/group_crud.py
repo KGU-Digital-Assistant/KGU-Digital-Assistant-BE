@@ -1,18 +1,15 @@
 from datetime import timedelta, date, datetime
 from sqlalchemy.orm import Session
-from models import Group, Track, Invitation, User, MealDay
+from models import Group, Track, Invitation, User, MealDay, Participation
 from fastapi import HTTPException
-from domain.group.group_schema import GroupCreate, InviteStatus, GroupDate, Respond
+from domain.group.group_schema import GroupCreate, InviteStatus, GroupDate, Respond, GroupStatus
 
 
-def create_group(db: Session, _group: GroupCreate, track: Track, user_id: int):
-    track_duration = track.duration if track.duration is not None else 0
+def create_group(db: Session, track: Track, user_id: int):
     db_group = Group(
-                    name=_group.name,
                     track_id=track.id,
-                    user_id=user_id,
-                    start_day=track.start_date,
-                    finish_day=track.finish_date,
+                    creator=user_id,
+                    status=GroupStatus.READY
                     # 종료일 = 시작일 + (track.duration)일
                 )
     db.add(db_group)
@@ -97,3 +94,21 @@ def participate_group(db: Session, user_id: int, group_id: int):
 def delete_group_in_user(cur_user: User, db: Session):
     cur_user.cur_group_id = None
     db.commit()
+
+
+def is_finished(db: Session):
+    now = datetime.now()
+    groups = db.query(Group).filter(Group.finish_day < now, Group.status == GroupStatus.STARTED).all()
+    for group in groups:
+        group.status = GroupStatus.TERMINATED
+        db.commit()
+
+        for user in group.users:
+            user.cur_group_id = None
+            db.commit()
+
+
+
+
+
+
