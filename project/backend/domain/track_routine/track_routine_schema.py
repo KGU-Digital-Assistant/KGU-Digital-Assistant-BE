@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class TrackRoutineCreate(BaseModel):
     title: str
-    food: Optional[str]
+    date: Optional[str]
     calorie: Optional[float]
     week: Optional[str]
     time: Optional[str]
