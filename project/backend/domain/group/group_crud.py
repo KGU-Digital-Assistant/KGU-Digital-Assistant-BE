@@ -1,28 +1,25 @@
 from datetime import timedelta, date, datetime
+from domain.group.group_schema import GroupCreate, InviteStatus, GroupDate, Respond, GroupStatus
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, insert, update
 from domain.meal_day import meal_day_crud
 from domain.track_routine import track_routine_crud
 from models import Group, Track, Invitation, User,MealDay, Participation
 from fastapi import HTTPException
-from domain.group.group_schema import GroupCreate, InviteStatus
+
 from models import FlagStatus
 
 
-
-
-def create_group(db: Session, _group: GroupCreate, track: Track, user_id: int):
-    track_duration = track.duration if track.duration is not None else 0
+def create_group(db: Session, track: Track, user_id: int):
     db_group = Group(
-                    name=_group.name,
                     track_id=track.id,
-                    user_id=user_id,
-                    start_day=_group.start_day,
-                    finish_day=_group.start_day + timedelta(days=track_duration)
+                    creator=user_id,
+                    status=GroupStatus.READY
                     # 종료일 = 시작일 + (track.duration)일
                 )
     db.add(db_group)
     db.commit()
+    return db_group
 
 
 def get_group_by_id(db, group_id):
@@ -38,7 +35,9 @@ def create_invitation(db: Session, user_id: int, group_id: int):
     db.commit()
 
 
-def accept_invitation(db: Session, user_id: int, group_id: int):
+def accept_invitation(db: Session, user_id: int, group_id: int, respond: Respond):
+    user = db.query(User).filter(User.id == user_id).first()
+
     invitation = db.query(Invitation).filter(Invitation.user_id == user_id,
                                              Invitation.group_id == group_id,
                                              Invitation.status == "pending").first()
@@ -78,6 +77,41 @@ def get_Group_byuserid_track_id_bystartfinishday(db: Session, user_id:int, track
     return groups
 
 
+
+def update_group_date(db: Session, group_id: int, date: GroupDate):
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    group.start_day = date.start_date
+    group.finish_day = date.end_date
+    db.commit()
+    return {"detail" : "group updated successfully"}
+
+
+def participate_group(db: Session, user_id: int, group_id: int):
+    user = db.query(User).filter(User.id == user_id).first()
+    group = db.query(Group).filter(Group.id == group_id).first()
+    group.users.append(user)
+    db.commit()
+
+
+def delete_group_in_user(cur_user: User, db: Session):
+    cur_user.cur_group_id = None
+    db.commit()
+
+
+def is_finished(db: Session):
+    now = datetime.now()
+    groups = db.query(Group).filter(Group.finish_day < now, Group.status == GroupStatus.STARTED).all()
+    for group in groups:
+        group.status = GroupStatus.TERMINATED
+        db.commit()
+
+        for user in group.users:
+            user.cur_group_id = None
+            db.commit()
+
+            
 def get_group_by_date_track_id_in_part(db: Session, user_id: int, date: date, track_id: int):
     result = (
         db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag, Participation.c.finish_date)

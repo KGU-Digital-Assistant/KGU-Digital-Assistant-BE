@@ -5,14 +5,16 @@ from pydantic import BaseModel
 
 class TrackRoutineCreate(BaseModel):
     title: str
-    food: str
-    calorie: float
-    week: str
-    time: str
+    food: Optional[str]
+    calorie: Optional[float]
+    week: Optional[str]
+    time: Optional[str]
     repeat: bool
 
 ################################################
-class TrackRoutine_schema(BaseModel):
+
+
+class TrackRoutineSchema(BaseModel):
     id: int
     track_id: int
     title: str
@@ -21,12 +23,14 @@ class TrackRoutine_schema(BaseModel):
     week: Optional[str] = None
     time: Optional[str] = None
 
-class TrackRoutine_create_schema(BaseModel):
+
+class TrackRoutineCreateSchema(BaseModel):
     title: str
     calorie: float
     week: str
     time: str
     repeat: bool
+
 
 class TrackRoutine_namecalorie_schema(BaseModel):
     title: str
@@ -40,6 +44,7 @@ class TrackRoutine_time_title_schema(BaseModel):
     time: str
     title: str
     calorie: Optional[float] = None
+
 
 class TrackRoutin_id_title(BaseModel):
     id: Optional[int]= None

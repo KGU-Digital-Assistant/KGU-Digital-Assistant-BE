@@ -1,12 +1,15 @@
 from sqlalchemy import Date,Column,Integer,ForeignKey,String,Float,DateTime,Text,Boolean,UniqueConstraint,Interval, Table, Enum as SqlEnum
 from sqlalchemy.orm import relationship
 from database import Base
-from enum import Enum
+from enum import Enum as PyEnum, Enum
+from domain.group.group_schema import GroupStatus
+
 
 class FlagStatus(Enum):
     ready = "ready"
     started = "started"
     terminated = "terminated"
+
 
 Participation = Table(
     'Participation', Base.metadata,
@@ -30,12 +33,13 @@ class User(Base):  # 회원
     nickname = Column(String, unique=True, nullable=False)
     rank = Column(Float, nullable=False)
     profile_picture = Column(String)
-    mentor_id = Column(Integer, ForeignKey("Mentor.id"), )
+    mentor_id = Column(Integer, ForeignKey("Mentor.id"))
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     external_id = Column(String)  # 연동했을 때 id
     auth_type = Column(String)  # 연동 방식 ex)kakao
     fcm_token = Column(String) # fcm 토큰 -> 앱 실행시(?), 회원가입(?)
+    cur_group_id = Column(Integer, ForeignKey("Group.id")) # 현재 참여중인 그룹 추가
     groups = relationship('Group', secondary=Participation, back_populates='users')
 
 class Mentor(Base): ## 멘토
@@ -79,24 +83,24 @@ class Track(Base):  # 식단트랙
     cheating_count = Column(Integer, default=0)
     start_date = Column(Date)
     finish_date = Column(Date)
-    count = Column(Integer, default=0) #트랙 공유, 초대횟수에 따른 count ++
+    share_count = Column(Integer, default=0)
     alone = Column(Boolean, default=True) ## 개인트랙, 공유초대트랙여부
     routines = relationship("TrackRoutine", back_populates="track")
+    # origin_id = Column(Integer, ForeignKey("Track.id"))
 
 class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인 테이블
     __tablename__ = "Group"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     track_id = Column(Integer, ForeignKey("Track.id"))
-    user_id = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
-    name = Column(String, unique=True, nullable=False)
-    start_day = Column(Date, nullable=True)
-    finish_day = Column(Date, nullable=True)
-    state = Column(String, nullable=False)
+    creator = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
+    start_day = Column(DateTime)
+    finish_day = Column(DateTime)
+    status = Column(SQLAEnum(GroupStatus), nullable=False)
     users = relationship("User", secondary=Participation, back_populates="groups")
 
 class TrackRoutine(Base): ## 식단트랙 루틴
-    __tablename__ = "Track_Routine"
+    __tablename__ = "TrackRoutine"
 
     id = Column(Integer, primary_key=True,autoincrement=True)
     track_id = Column(Integer, ForeignKey("Track.id"))
@@ -170,3 +174,15 @@ class Comment(Base): ##댓글
     text = Column(String, nullable=True)
     date = Column(DateTime, nullable=True)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False) ## 댓글 등록자
+
+
+class MentorInvite(Base):
+    __tablename__ = 'MentorInvite'
+
+    id = Column(Integer, primary_key=True, index=True)
+    mentee_id = Column(Integer, ForeignKey('User.id'))
+    mentor_id = Column(Integer, ForeignKey('User.id'))
+    status = Column(String, default='pending')  # 'pending', 'accepted', 'rejected'
+
+    mentee = relationship("User", foreign_keys=[mentee_id])
+    mentor = relationship("User", foreign_keys=[mentor_id])

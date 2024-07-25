@@ -46,7 +46,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(config('ACCESS_TOKEN_EXPIRE_MINUTES'))
 REDIRECT_URI = config('REDIRECT_URI')
 SECRET_KEY = config('SECRET_KEY')
 ALGORITHM = "HS256"
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
 router = APIRouter(
     prefix="/user",
@@ -112,8 +112,8 @@ def get_authorization_token(authorization: str = Header(...)) -> str:
     return param
 
 
-@router.post("/regist/fcm-token")
-def regist_fcm_token(_fcm_token: str, _user_name: str, db: Session = Depends(get_db)):
+@router.post("/register/fcm-token")
+def register_fcm_token(_fcm_token: str, _user_name: str, db: Session = Depends(get_db)):
     """
     fcm 토큰을 클라이언트(프론트)에서 발급받아서 서버에 저장
     회원가입하고 바로 해줘야함
@@ -228,10 +228,10 @@ def get_current_user(token: str = Depends(oauth2_scheme),
 
 # 회원 업데이트
 @router.patch("/update", response_model=user_schema.UserUpdate)
-def user_update(user_update: user_schema.UserUpdate,
+def user_update(_user_update: user_schema.UserUpdate,
                 current_user: User = Depends(get_current_user),
                 db: Session = Depends(get_db)):
-    user = user_crud.update_user(db, user_id=current_user.id, user_update=user_update)
+    user = user_crud.update_user(db, user_id=current_user.id, user_update=_user_update)
     if not user:
         raise HTTPException(status_code=404, detail="사용자가 존재하지 않습니다.")
     return user
@@ -807,7 +807,7 @@ async def get_profile_picture(current_user: User = Depends(get_current_user), db
 ############################## user setting ################################
 
 
-@router.get("/get", response_model=user_schema.UserProfile)
+@router.get("/get")
 async def get_user(db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
     """
@@ -817,13 +817,17 @@ async def get_user(db: Session = Depends(get_db),
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    mentor = mentor_crud.get_User(db, id=current_user.mentor_id)
+    mentor_name = ""
+    mentor = mentor_crud.get_mentor(db, user_id=current_user.mentor_id)
+    if mentor:
+        _mentor = user_crud.get_user_by_id(db, id=mentor.user_id)
+        mentor_name = _mentor.name
 
     return {
         "profile_picture": user.profile_picture,
         "name": user.name,
         "nickname": user.nickname,
-        "mentor_name": mentor.name
+        "mentor_name": mentor_name
     }
 
 
