@@ -31,7 +31,7 @@ class User(Base):  # 회원
     birth = Column(DateTime)
     create_date = Column(DateTime, nullable=False)  # 가입일자
     nickname = Column(String, unique=True, nullable=False)
-    rank = Column(Float, nullable=False)
+    rank = Column(String, nullable=False)
     profile_picture = Column(String)
     mentor_id = Column(Integer, ForeignKey("Mentor.id"))
     email = Column(String, unique=True, nullable=False)
@@ -96,7 +96,7 @@ class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인
     creator = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
     start_day = Column(DateTime)
     finish_day = Column(DateTime)
-    status = Column(SQLAEnum(GroupStatus), nullable=False)
+    status = Column(SqlEnum(GroupStatus), nullable=False)
     users = relationship("User", secondary=Participation, back_populates="groups")
 
 class TrackRoutine(Base): ## 식단트랙 루틴

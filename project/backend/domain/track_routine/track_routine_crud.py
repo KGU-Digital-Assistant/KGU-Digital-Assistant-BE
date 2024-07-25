@@ -28,9 +28,9 @@ def create(db: Session, track_id: int,
         time=routine_create.time,
         title=routine_create.title,
         calorie=routine_create.calorie,
-        food=routine_create.food,
         week=routine_create.week,
         repeat=routine_create.repeat,
+        date=routine_create.date,
     )
     db.add(db_routine)
     db.commit()

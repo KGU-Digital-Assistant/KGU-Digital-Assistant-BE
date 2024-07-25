@@ -5,7 +5,7 @@ from typing import Optional,List
 
 class MentorCreate(BaseModel):
     # user_id: int
-    company_id: int
+    company_id: Optional[int]
     gym: str
     FA: bool
 
