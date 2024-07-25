@@ -36,10 +36,9 @@ def create_user(db: Session, user_create: UserCreate):
 def update_user(db: Session, user_id: int, user_update: UserUpdate):
     user = db.query(User).filter(User.id == user_id).first()
     if user:
-        user.username = user_update.name or user.username
+        user.name = user_update.name or user.username
         user.email = user_update.email or user.email
-        if user_update.password:
-            user.password = pwd_context.hash(user_update.password)
+        user.nickname = user_update.nickname or user.nickname
         db.commit()
         db.refresh(user)
     return user
@@ -208,3 +207,7 @@ def delete_mentor(id: int, db: Session):
         return False
     user.mentor_id = None
     return True
+
+
+def get_user_by_id(db: Session, id: int):
+    return db.query(User).filter(User.id == id).first()

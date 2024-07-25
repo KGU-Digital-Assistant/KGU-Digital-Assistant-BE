@@ -1,7 +1,9 @@
 from sqlalchemy import Date,Column,Integer,ForeignKey,String,Float,DateTime,Text,Boolean,UniqueConstraint,Interval, Table, Enum as SQLAEnum
 from sqlalchemy.orm import relationship
 from database import Base
-from enum import Enum as PyEnum
+from enum import Enum as PyEnum, Enum
+
+from domain.group.group_schema import GroupStatus
 
 Participation = Table(
     'Participation', Base.metadata,
@@ -71,25 +73,26 @@ class Track(Base):  # 식단트랙
     duration = Column(Integer)  # Interval : 일, 시간, 분, 초 단위로 기간을 표현 가능, 정확한 시간의 간격(기간)
     track_yn = Column(Boolean, default=True)  # 트랙 생성자가 이를 삭제하면 남들도 이거 사용 못하게 함
     cheating_count = Column(Integer, default=0)
-    goal_caloire = Column(Integer, default=0)
     start_date = Column(Date)
     finish_date = Column(Date)
+    share_count = Column(Integer, default=0)
     routines = relationship("TrackRoutine", back_populates="track")
-    share = Column(Boolean, default=False) # 공유 트랙, 개인 트랙 판별
+    alone = Column(Boolean, default=False) # 공유 트랙, 개인 트랙 판별
+    # origin_id = Column(Integer, ForeignKey("Track.id"))
 
 class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인 테이블
     __tablename__ = "Group"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     track_id = Column(Integer, ForeignKey("Track.id"))
-    user_id = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
-    name = Column(String, unique=True, nullable=False)
+    creator = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
     start_day = Column(DateTime)
     finish_day = Column(DateTime)
+    status = Column(SQLAEnum(GroupStatus), nullable=False)
     users = relationship("User", secondary=Participation, back_populates="groups")
 
 class TrackRoutine(Base): ## 식단트랙 루틴
-    __tablename__ = "Track_Routine"
+    __tablename__ = "TrackRoutine"
 
     id = Column(Integer, primary_key=True,autoincrement=True)
     track_id = Column(Integer, ForeignKey("Track.id"),unique=True)

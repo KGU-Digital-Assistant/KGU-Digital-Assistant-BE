@@ -70,16 +70,18 @@ class UserKakao(BaseModel):
     external_id: str
     auth_type: str
 
+
 class UserUpdate(BaseModel):
-    name: str
-    nickname: str
-    email: EmailStr
+    name: Optional[str]
+    nickname: Optional[str]
+    email: Optional[EmailStr]
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str
     username: str
+
 
 class UserSchema(BaseModel):
     id: int

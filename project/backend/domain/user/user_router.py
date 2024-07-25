@@ -227,10 +227,10 @@ def get_current_user(token: str = Depends(oauth2_scheme),
 
 # 회원 업데이트
 @router.patch("/update", response_model=user_schema.UserUpdate)
-def user_update(user_update: user_schema.UserUpdate,
+def user_update(_user_update: user_schema.UserUpdate,
                 current_user: User = Depends(get_current_user),
                 db: Session = Depends(get_db)):
-    user = user_crud.update_user(db, user_id=current_user.id, user_update=user_update)
+    user = user_crud.update_user(db, user_id=current_user.id, user_update=_user_update)
     if not user:
         raise HTTPException(status_code=404, detail="사용자가 존재하지 않습니다.")
     return user
@@ -784,7 +784,7 @@ async def get_profile_picture(id: int, db: Session = Depends(get_db)):
 ############################## user setting ################################
 
 
-@router.get("/get", response_model=user_schema.UserProfile)
+@router.get("/get")
 async def get_user(db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
     """
@@ -794,13 +794,17 @@ async def get_user(db: Session = Depends(get_db),
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    mentor = mentor_crud.get_User(db, id=current_user.mentor_id)
+    mentor_name = ""
+    mentor = mentor_crud.get_mentor(db, user_id=current_user.mentor_id)
+    if mentor:
+        _mentor = user_crud.get_user_by_id(db, id=mentor.user_id)
+        mentor_name = _mentor.name
 
     return {
         "profile_picture": user.profile_picture,
         "name": user.name,
         "nickname": user.nickname,
-        "mentor_name": mentor.name
+        "mentor_name": mentor_name
     }
 
 
