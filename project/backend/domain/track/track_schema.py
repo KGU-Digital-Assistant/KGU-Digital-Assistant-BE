@@ -13,8 +13,10 @@ class TrackCreate(BaseModel):
     alcohol: float
     duration: int
     track_yn: bool
-    start: date
-    end: date
+    alone: bool
+    start_date: date
+    end_date: date
+
     class Config:
         orm_mode = True
 

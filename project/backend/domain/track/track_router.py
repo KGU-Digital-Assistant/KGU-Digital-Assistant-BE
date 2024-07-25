@@ -2,12 +2,13 @@ from typing import List
 
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, HTTPException, Depends, Request, Form
+from sqlalchemy.sql.functions import current_user
 from starlette import status
 from datetime import datetime
 from database import get_db
 from domain.user import user_router, user_crud
 from models import Track, User, TrackRoutine
-from domain.group import group_crud
+from domain.group import group_crud, group_schema
 from domain.track_routine import track_routine_crud,track_routine_schema
 from domain.track.track_schema import TrackCreate, TrackResponse, TrackSchema, TrackList
 from domain.track import track_crud, track_schema
@@ -24,15 +25,56 @@ def create_track(current_user: User = Depends(user_router.get_current_user),
     return {"track_id": track.id}
 
 
-@router.patch("/update", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/create/next", status_code=status.HTTP_204_NO_CONTENT)
 def update_track(_track_id: int,
                  _track: TrackCreate,
                  current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
+    """
+    트랙 생성 하기 누를 때 적용 됨
+    1. 트랙 내용 채우기
+    2. 그룹 생성
+    """
     track = track_crud.track_update(db, _track_id, current_user, _track)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    group = group_crud.create_group(db, track, current_user.id)
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="group not found")
     return track
+
+
+@router.patch("/update/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+def update_track(track_id: int,
+                 _track: TrackCreate,
+                 current_user: User = Depends(user_router.get_current_user),
+                 db: Session = Depends(get_db)):
+    track = track_crud.get_track_by_id(db, track_id)
+    if track is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if track.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    track_crud.track_update(db, track_id, current_user, _track)
+
+
+@router.post("{track_id}/change/alone-to-multiple", status_code=status.HTTP_204_NO_CONTENT)
+def change_track(track_id: int,
+                 _current_user: User = Depends(user_router.get_current_user),
+                 db: Session = Depends(get_db)):
+    """
+    change: 개인트랙 -> 공유트랙,
+    개인트랙을 하나 복사해서 하나 더 만드는 로직
+    """
+    track = track_crud.get_track_by_id(db, track_id)
+    if track is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if track.user_id != _current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="트랙 권한이 없음")
+
+    new_track = track_crud.copy_multiple_track(db, track, _current_user.id)
+    return new_track
 
 
 # track 특정 이름 포함 모두 검색 : ex) `건강` 검색-> `건강한 식단트랙`  (단 두글자 이상 검색해야함)
