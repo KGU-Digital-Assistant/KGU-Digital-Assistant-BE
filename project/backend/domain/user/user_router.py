@@ -19,7 +19,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, JSONResponse
 from starlette.config import Config
 from database import get_db
-from domain.Mentor import mentor_crud
+from domain.mentor import mentor_crud
+from domain.meal_hour import meal_hour_crud
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import pwd_context
 from models import User
@@ -45,7 +46,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(config('ACCESS_TOKEN_EXPIRE_MINUTES'))
 REDIRECT_URI = config('REDIRECT_URI')
 SECRET_KEY = config('SECRET_KEY')
 ALGORITHM = "HS256"
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
 router = APIRouter(
     prefix="/user",
@@ -109,6 +110,24 @@ def get_authorization_token(authorization: str = Header(...)) -> str:
             headers={"WWW-Authenticate": "Bearer"},
         )
     return param
+
+
+@router.post("/register/fcm-token")
+def register_fcm_token(_fcm_token: str, _user_name: str, db: Session = Depends(get_db)):
+    """
+    fcm 토큰을 클라이언트(프론트)에서 발급받아서 서버에 저장
+    회원가입하고 바로 해줘야함
+    """
+
+    user = user_crud.save_fcm_token(db, _user_name, _fcm_token)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="user is not exist",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return {"status": "ok"}
+
 
 
 def extract_tokens(authorization: str = Header(...)):
@@ -209,10 +228,10 @@ def get_current_user(token: str = Depends(oauth2_scheme),
 
 # 회원 업데이트
 @router.patch("/update", response_model=user_schema.UserUpdate)
-def user_update(user_update: user_schema.UserUpdate,
+def user_update(_user_update: user_schema.UserUpdate,
                 current_user: User = Depends(get_current_user),
                 db: Session = Depends(get_db)):
-    user = user_crud.update_user(db, user_id=current_user.id, user_update=user_update)
+    user = user_crud.update_user(db, user_id=current_user.id, user_update=_user_update)
     if not user:
         raise HTTPException(status_code=404, detail="사용자가 존재하지 않습니다.")
     return user
@@ -667,10 +686,14 @@ async def register_token(request: Request, db: Session = Depends(get_db)):
 #         response = await call_next(request)
 #         return response
 
-#########################################
-
+###############################################################
+## 현빈제작
+###############################################################
 @router.get("/get/{id}", response_model=user_schema.User)
 def get_id_User(id: int, db: Session = Depends(get_db)):
+    """
+
+    """
     User = user_crud.get_User(db, id=id)
     if User is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -678,15 +701,37 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/get/{id}/rank", response_model=user_schema.UserRank)
-def get_id_User_rank(id: int, db: Session = Depends(get_db)):
-    rank = user_crud.get_User_rank(db, id=id)
+def get_id_User_rank(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    유저랭크 조회 : 9page 3번 (현재 보류)
+     - 입력예시 : user_id = 1
+     - 출력 : user.rank
+    """
+    rank = user_crud.get_User_rank(db, id=current_user.id)
     if rank is None:
         raise HTTPException(status_code=404, detail="User not found")
     return {"rank": rank}  ##rank 열만 출력
 
 
-@router.get("/get/{id}/nickname", response_model=user_schema.Usernickname)
-def get_id_User_nickname(id: int, db: Session = Depends(get_db)):
+@router.get("/get/{id}/nickname/mine", response_model=user_schema.Usernickname)
+def get_id_User_nickname_user(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    유저 Nickname 조회 : 11page 1번, 12page 1번
+     - 입력예시 : user_id = 1
+     - 출력 : user.nickname
+    """
+    nickname = user_crud.get_User_nickname(db, id=current_user.id)
+    if nickname is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"nickname": nickname}  ##nickname 열만 출력
+
+@router.get("/get/{id}/nickname/formentor", response_model=user_schema.Usernickname)
+def get_id_User_nickname_mentor(id: int, db: Session = Depends(get_db)):
+    """
+    유저 Nickname 조회 : 17page 3번
+     - 입력예시 : user_id = 1
+     - 출력 : user.nickname
+    """
     nickname = user_crud.get_User_nickname(db, id=id)
     if nickname is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -695,6 +740,11 @@ def get_id_User_nickname(id: int, db: Session = Depends(get_db)):
 
 @router.get("/get/{id}/name", response_model=user_schema.Username)
 def get_id_User(id: int, db: Session = Depends(get_db)):
+    """
+    유저 name 조회 : 17page 2번
+     - 입력예시 : user_id = 1
+     - 출력 : user.name
+    """
     name = user_crud.get_User_nickname(db, id=id)
     if name is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -702,15 +752,15 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/upload_profile_picture/{id}")
-async def upload_profile_picture(id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_profile_picture(current_user: User = Depends(get_current_user), file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
-        user = user_crud.get_User(db, id=id)
+        user = user_crud.get_User(db, id=current_user.id)
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
         # 고유한 파일 이름 생성
-        file_id = str(uuid.uuid4())
+        file_id = meal_hour_crud.create_file_name(user_id=current_user.id)
         blob = bucket.blob(f"profile_pictures/{file_id}")
 
         # 파일 업로드
@@ -735,10 +785,10 @@ async def upload_profile_picture(id: int, file: UploadFile = File(...), db: Sess
 
 
 @router.get("/get_profile_picture/{id}")
-async def get_profile_picture(id: int, db: Session = Depends(get_db)):
+async def get_profile_picture(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
-        user = user_crud.get_User(db, id=id)
+        user = user_crud.get_User(db, id=current_user.id)
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -757,7 +807,7 @@ async def get_profile_picture(id: int, db: Session = Depends(get_db)):
 ############################## user setting ################################
 
 
-@router.get("/get", response_model=user_schema.UserProfile)
+@router.get("/get")
 async def get_user(db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
     """
@@ -767,13 +817,17 @@ async def get_user(db: Session = Depends(get_db),
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    mentor = mentor_crud.get_User(db, id=current_user.mentor_id)
+    mentor_name = ""
+    mentor = mentor_crud.get_mentor(db, user_id=current_user.mentor_id)
+    if mentor:
+        _mentor = user_crud.get_user_by_id(db, id=mentor.user_id)
+        mentor_name = _mentor.name
 
     return {
         "profile_picture": user.profile_picture,
         "name": user.name,
         "nickname": user.nickname,
-        "mentor_name": mentor.name
+        "mentor_name": mentor_name
     }
 
 

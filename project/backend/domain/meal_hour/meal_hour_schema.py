@@ -2,6 +2,7 @@ import datetime
 
 
 from pydantic import BaseModel
+from typing import Optional
 
 class MealHour_schema(BaseModel):
     id: int
@@ -18,6 +19,7 @@ class MealHour_schema(BaseModel):
     calorie: float
     unit: str
     size: float
+    track_goal: Optional[bool]= None
     daymeal_id: int
 
 class MealHour_gram_update_schema(MealHour_schema):
@@ -40,3 +42,6 @@ class MealHour_daymeal_get_picture_schema(BaseModel):
     name: str ## 등록시간대
     caloire: float
     picture: str
+
+class MealHour_track_get_schema(BaseModel):
+    track_goal: bool

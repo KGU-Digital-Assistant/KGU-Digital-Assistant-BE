@@ -3,14 +3,17 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from typing import Optional
 from domain.user.user_schema import UserCreate, UserUpdate, Rank, UserProfile
-from models import User
+from models import User, Invitation
+from firebase_admin import messaging
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
 def get_existing_user(db: Session, user_create: UserCreate):
     return db.query(User).filter(
-        User.cellphone == user_create.cellphone
+        User.cellphone == user_create.cellphone or
+        User.nickname == user_create.nickname or
+        User.email == user_create.email
     ).first()
 
 
@@ -33,10 +36,9 @@ def create_user(db: Session, user_create: UserCreate):
 def update_user(db: Session, user_id: int, user_update: UserUpdate):
     user = db.query(User).filter(User.id == user_id).first()
     if user:
-        user.username = user_update.name or user.username
+        user.name = user_update.name or user.username
         user.email = user_update.email or user.email
-        if user_update.password:
-            user.password = pwd_context.hash(user_update.password)
+        user.nickname = user_update.nickname or user.nickname
         db.commit()
         db.refresh(user)
     return user
@@ -73,7 +75,29 @@ def get_user_by_username(db: Session, _username: str):
 def get_users_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).all()
 
-#########################################
+def update_profile(db: Session, profile_user: UserProfile,
+                   current_user: User):
+    current_user.profile_picture = profile_user.profile_picture
+    current_user.username = profile_user.username
+    current_user.nickname = profile_user.nickname
+    current_user.mentor_id = profile_user.mentor.id
+    db.commit()
+    db.refresh(current_user)
+
+
+def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    db_user.access_token = new_access_token
+    db.commit()
+    db.refresh(db_user)
+
+
+def get_user_by_cellphone(db: Session, _cellphone: str):
+    cellphone = _cellphone.replace('-', '')
+    phone_number = "010" + cellphone[-8:]
+    return db.query(User).filter(User.cellphone==phone_number).first()
+
+###########################################
 
 def get_User(db: Session, id:int):
     Users=db.query(User).get(id)
@@ -118,7 +142,6 @@ def get_User_byemail(db: Session, mail: str):
     Users=db.query(User).filter(User.email== mail).first()
     return Users
 
-
 def update_profile(db: Session, profile_user: UserProfile,
                    current_user: User):
     current_user.profile_picture = profile_user.profile_picture
@@ -140,3 +163,51 @@ def get_user_by_cellphone(db: Session, _cellphone: str):
     cellphone = _cellphone.replace('-', '')
     phone_number = "010" + cellphone[-8:]
     return db.query(User).filter(User.cellphone==phone_number).first()
+
+
+def save_fcm_token(db: Session, _user_name: str, _fcm_token: str):
+    db_user = db.query(User).filter(User.username == _user_name).first()
+    if db_user is not None:
+        db_user.fcm_token = _fcm_token
+        db.commit()
+        db.refresh(db_user)
+    return db_user
+
+
+def send_push_invite(fcm_token: str, title: str, body: str):
+    """
+    fcm 메시지 생성
+    """
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        token=fcm_token
+    )
+
+    response = messaging.send(message)
+    return response
+
+
+def invitation_respond(invitation_id: int, response: str, db: Session, _mentee_id: int):
+    invitation = db.query(Invitation).filter(Invitation.id == invitation_id).first()
+    invitation.status = response.lower()
+    db.commit()
+
+    if response.lower() == "accepted":
+        mentee = db.query(User).filter(User.id == _mentee_id).first()
+        mentee.mentor_id = invitation.mentor.id
+        db.commit()
+
+
+def delete_mentor(id: int, db: Session):
+    user = db.query(User).filter(User.id == id).first()
+    if user is None:
+        return False
+    user.mentor_id = None
+    return True
+
+
+def get_user_by_id(db: Session, id: int):
+    return db.query(User).filter(User.id == id).first()

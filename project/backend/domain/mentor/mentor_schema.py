@@ -5,7 +5,7 @@ from typing import Optional,List
 
 class MentorCreate(BaseModel):
     # user_id: int
-    company_id: int
+    company_id: Optional[int]
     gym: str
     FA: bool
 
@@ -45,10 +45,12 @@ class find_User(BaseModel):
 class Users_Info(BaseModel):
     user_id: int
     user_name: str
-    user_rank: float
+    user_rank: str
     meal_names: List[str]
     meal_cheating: Optional[int] = None
     now_calorie: Optional[float] = None
+    track_name: Optional[str] = None
+    dday:Optional[int] = None
 
 class Mentor_get_UserInfo_schema(BaseModel):
     users: List[Users_Info]

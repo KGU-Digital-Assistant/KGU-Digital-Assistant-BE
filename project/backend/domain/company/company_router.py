@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from domain.Company import company_crud
-from domain.Company.company_schema import CompanyCreate, CompanyList, CompanySchema, CompanyUpdate
+from domain.company import company_crud
+from domain.company.company_schema import CompanyCreate, CompanyList, CompanySchema, CompanyUpdate
 from sqlalchemy.orm import Session
 from starlette import status
 from database import get_db
@@ -37,7 +37,7 @@ def update_company(_company_update: CompanyUpdate, db: Session = Depends(get_db)
     if not db_company:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Company not found"
+            detail="company not found"
         )
 
     company_crud.company_update(db=db, db_company=db_company, _company_update=_company_update)
@@ -49,7 +49,7 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     if not db_company:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Company not found"
+            detail="company not found"
         )
 
     company_crud.delete_company(db=db, db_company=db_company)

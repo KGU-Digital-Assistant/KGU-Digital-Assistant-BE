@@ -3,7 +3,7 @@ from datetime import date
 from fastapi.openapi.models import Schema
 from pydantic import BaseModel
 from sqlalchemy import Interval
-from domain.TrackRoutine.track_routine_schema import  TrackRoutine_create_schema
+from domain.track_routine.track_routine_schema import  TrackRoutineCreateSchema, TrackRoutin_id_title
 
 
 class TrackCreate(BaseModel):
@@ -13,6 +13,9 @@ class TrackCreate(BaseModel):
     alcohol: float
     duration: int
     track_yn: bool
+    alone: bool
+    start_date: date
+    end_date: date
 
     class Config:
         orm_mode = True
@@ -50,7 +53,6 @@ class TrackList(BaseModel):
 
 
 ######################################
-
 class Track_schema(BaseModel):
     id: int
     user_id: int
@@ -60,8 +62,12 @@ class Track_schema(BaseModel):
     alcohol: Optional[float] = None
     duration: Optional[int] = None
     track_yn: bool
-    start_date: date
-    finish_date: date
+    cheating_count: Optional[int] = None
+
+class Track_list_get_schema(BaseModel):
+    track_id: int
+    name: str
+    using: Optional[bool] = None
 
 class Track_create_schema(BaseModel):
     name: str
@@ -70,4 +76,19 @@ class Track_create_schema(BaseModel):
     alcohol: float
     start_date: date
     finish_date: date
-    routines: List[TrackRoutine_create_schema] = []
+    routines: List[TrackRoutineCreateSchema] = []
+
+class Track_get_Info(BaseModel):
+    track_name: str
+    name: str
+    track_start_day: Optional[date]=None
+    track_finish_day: Optional[date]= None
+    group_start_day: Optional[date]=None
+    group_finish_day: Optional[date]= None
+    real_finish_day: Optional[date]=None
+    duration: Optional[int]= None
+    calorie: Optional[float] = None
+    count: Optional[int]=None
+    repeatroutin: Optional[List[TrackRoutin_id_title]] = []
+    soloroutin: Optional[List[TrackRoutin_id_title]] = []
+

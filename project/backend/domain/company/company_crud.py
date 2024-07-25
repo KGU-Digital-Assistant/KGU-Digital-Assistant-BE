@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from domain.Company.company_schema import CompanyCreate, CompanyUpdate
+from domain.company.company_schema import CompanyCreate, CompanyUpdate
 from models import Company
 
 

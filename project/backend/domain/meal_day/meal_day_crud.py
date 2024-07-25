@@ -1,6 +1,6 @@
 from datetime import datetime, date
 
-from domain.MealDay.MealDay_schema import MealDay_schema,MealDay_cheating_update_schema, Mealday_wca_update_schema
+from domain.meal_day.meal_day_schema import Mealday_wca_update_schema
 from models import MealDay
 
 from sqlalchemy.orm import Session
@@ -21,11 +21,6 @@ def get_MealDay_bydate_cheating(db: Session, user_id: int, date: datetime):
     if mealDaily:
         return mealDaily
 
-def update_cheating(db: Session, db_MealPosting_Daily: MealDay, cheating_update: MealDay_cheating_update_schema):
-    db_MealPosting_Daily.cheating = cheating_update.cheating
-    db.commit()
-    db.refresh(db_MealPosting_Daily)
-
 def get_MealDay_bydate_wca(db: Session, user_id: int, date: date):
     mealDaily = db.query(
         MealDay.water,
@@ -40,7 +35,7 @@ def get_MealDay_bydate_wca(db: Session, user_id: int, date: date):
     return None
 
 def update_wca(db: Session, db_MealPosting_Daily: MealDay,
-                       wca_update: MealDay_cheating_update_schema):
+                       wca_update: Mealday_wca_update_schema):
     db_MealPosting_Daily.water =wca_update.water
     db_MealPosting_Daily.coffee=wca_update.coffee
     db_MealPosting_Daily.alcohol=wca_update.alcohol
