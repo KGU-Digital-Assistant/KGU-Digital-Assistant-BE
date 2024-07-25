@@ -20,6 +20,7 @@ from starlette.responses import RedirectResponse, JSONResponse
 from starlette.config import Config
 from database import get_db
 from domain.mentor import mentor_crud
+from domain.meal_hour import meal_hour_crud
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import pwd_context
 from models import User
@@ -700,20 +701,37 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/get/{id}/rank", response_model=user_schema.UserRank)
-def get_id_User_rank(id: int, db: Session = Depends(get_db)):
+def get_id_User_rank(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     유저랭크 조회 : 9page 3번 (현재 보류)
      - 입력예시 : user_id = 1
      - 출력 : user.rank
     """
-    rank = user_crud.get_User_rank(db, id=id)
+    rank = user_crud.get_User_rank(db, id=current_user.id)
     if rank is None:
         raise HTTPException(status_code=404, detail="User not found")
     return {"rank": rank}  ##rank 열만 출력
 
 
-@router.get("/get/{id}/nickname", response_model=user_schema.Usernickname)
-def get_id_User_nickname(id: int, db: Session = Depends(get_db)):
+@router.get("/get/{id}/nickname/mine", response_model=user_schema.Usernickname)
+def get_id_User_nickname_user(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    유저 Nickname 조회 : 11page 1번, 12page 1번
+     - 입력예시 : user_id = 1
+     - 출력 : user.nickname
+    """
+    nickname = user_crud.get_User_nickname(db, id=current_user.id)
+    if nickname is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"nickname": nickname}  ##nickname 열만 출력
+
+@router.get("/get/{id}/nickname/formentor", response_model=user_schema.Usernickname)
+def get_id_User_nickname_mentor(id: int, db: Session = Depends(get_db)):
+    """
+    유저 Nickname 조회 : 17page 3번
+     - 입력예시 : user_id = 1
+     - 출력 : user.nickname
+    """
     nickname = user_crud.get_User_nickname(db, id=id)
     if nickname is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -722,6 +740,11 @@ def get_id_User_nickname(id: int, db: Session = Depends(get_db)):
 
 @router.get("/get/{id}/name", response_model=user_schema.Username)
 def get_id_User(id: int, db: Session = Depends(get_db)):
+    """
+    유저 name 조회 : 17page 2번
+     - 입력예시 : user_id = 1
+     - 출력 : user.name
+    """
     name = user_crud.get_User_nickname(db, id=id)
     if name is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -729,15 +752,15 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/upload_profile_picture/{id}")
-async def upload_profile_picture(id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_profile_picture(current_user: User = Depends(get_current_user), file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
-        user = user_crud.get_User(db, id=id)
+        user = user_crud.get_User(db, id=current_user.id)
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
         # 고유한 파일 이름 생성
-        file_id = str(uuid.uuid4())
+        file_id = meal_hour_crud.create_file_name(user_id=current_user.id)
         blob = bucket.blob(f"profile_pictures/{file_id}")
 
         # 파일 업로드
@@ -762,10 +785,10 @@ async def upload_profile_picture(id: int, file: UploadFile = File(...), db: Sess
 
 
 @router.get("/get_profile_picture/{id}")
-async def get_profile_picture(id: int, db: Session = Depends(get_db)):
+async def get_profile_picture(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
-        user = user_crud.get_User(db, id=id)
+        user = user_crud.get_User(db, id=current_user.id)
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 

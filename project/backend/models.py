@@ -1,13 +1,20 @@
-from sqlalchemy import Date,Column,Integer,ForeignKey,String,Float,DateTime,Text,Boolean,UniqueConstraint,Interval, Table, Enum as SQLAEnum
+from sqlalchemy import Date,Column,Integer,ForeignKey,String,Float,DateTime,Text,Boolean,UniqueConstraint,Interval, Table, Enum as SqlEnum
 from sqlalchemy.orm import relationship
 from database import Base
-from enum import Enum as PyEnum
+from enum import Enum
+
+class FlagStatus(Enum):
+    ready = "ready"
+    started = "started"
+    terminated = "terminated"
 
 Participation = Table(
     'Participation', Base.metadata,
     Column('user_id', Integer, ForeignKey('User.id'), primary_key=True), ## 그룹가입 user(회원들)
     Column('group_id', Integer, ForeignKey('Group.id'), primary_key=True), ## 그룹id
-    Column('cheating_count', Integer, nullable=False, default=0)
+    Column('cheating_count', Integer, nullable=True), ##치팅 횟수
+    Column('flag', SqlEnum(FlagStatus, native_enum=False), nullable=False, default=FlagStatus.ready), # Enum 타입 문자열
+    Column('finish_date', Date, nullable=True) # 실제 종료일 입력
 )
 
 class User(Base):  # 회원
@@ -21,7 +28,7 @@ class User(Base):  # 회원
     birth = Column(DateTime)
     create_date = Column(DateTime, nullable=False)  # 가입일자
     nickname = Column(String, unique=True, nullable=False)
-    rank = Column(String, nullable=False)
+    rank = Column(Float, nullable=False)
     profile_picture = Column(String)
     mentor_id = Column(Integer, ForeignKey("Mentor.id"), )
     email = Column(String, unique=True, nullable=False)
@@ -70,9 +77,10 @@ class Track(Base):  # 식단트랙
     duration = Column(Integer)  # Interval : 일, 시간, 분, 초 단위로 기간을 표현 가능, 정확한 시간의 간격(기간)
     track_yn = Column(Boolean, default=True)  # 트랙 생성자가 이를 삭제하면 남들도 이거 사용 못하게 함
     cheating_count = Column(Integer, default=0)
-    goal_caloire = Column(Integer, default=0)
     start_date = Column(Date)
     finish_date = Column(Date)
+    count = Column(Integer, default=0) #트랙 공유, 초대횟수에 따른 count ++
+    alone = Column(Boolean, default=True) ## 개인트랙, 공유초대트랙여부
     routines = relationship("TrackRoutine", back_populates="track")
 
 class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인 테이블
@@ -82,15 +90,16 @@ class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인
     track_id = Column(Integer, ForeignKey("Track.id"))
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
     name = Column(String, unique=True, nullable=False)
-    start_day = Column(DateTime, nullable=False)
-    finish_day = Column(DateTime, nullable=False)
+    start_day = Column(Date, nullable=True)
+    finish_day = Column(Date, nullable=True)
+    state = Column(String, nullable=False)
     users = relationship("User", secondary=Participation, back_populates="groups")
 
 class TrackRoutine(Base): ## 식단트랙 루틴
     __tablename__ = "Track_Routine"
 
     id = Column(Integer, primary_key=True,autoincrement=True)
-    track_id = Column(Integer, ForeignKey("Track.id"),unique=True)
+    track_id = Column(Integer, ForeignKey("Track.id"))
     title = Column(String, nullable=False)
     calorie = Column(Float, nullable=False)
     week = Column(String,nullable=True) ## 요일에 따른 1 2 3 4 5 6 7
@@ -147,6 +156,7 @@ class MealHour(Base): ##식단게시글 (시간대별)
     calorie = Column(Float, nullable=True) ## 섭취칼로리
     unit =Column(String, nullable=True) ##저장단위
     size = Column(Float, nullable=True) ##사이즈
+    track_goal = Column(Boolean, nullable=True)  ##트랙지켯는지 안지켰는지 유무
     daymeal_id = Column(Integer, ForeignKey("Meal_Day.id"), nullable=False)
     __table_args__ = (
         UniqueConstraint('user_id', 'time', name='_user_date_hour_uc'),

@@ -1,6 +1,7 @@
 from datetime import datetime,date
 from typing import Optional, List
-
+from domain.meal_hour import meal_hour_schema
+from domain.track_routine import track_routine_schema
 from pydantic import BaseModel
 
 class MealDay_schema(BaseModel):
@@ -23,6 +24,10 @@ class MealDay_schema(BaseModel):
 
 class MealDay_cheating_get_schema(BaseModel):
     cheating: int
+
+class MealDay_cheating_count_get_schema(BaseModel):
+    cheating_count: int
+    user_id2: int
 
 class MealDay_wca_get_schema(BaseModel):
     water:float
@@ -51,6 +56,6 @@ class MealDay_track_today_schema(BaseModel):
     mealday: List[MealDay_track_hour_schema]
 
 class MealDay_track_dday_goal_real_schema(BaseModel):
-    dday: int
-    goal: List[str]
-    real: List[str]
+    dday: Optional[int]=None
+    goal: Optional[List[track_routine_schema.TrackRoutine_time_title_schema]]=None
+    real: Optional[List[meal_hour_schema.MealHour_daymeal_get_schema]]=None

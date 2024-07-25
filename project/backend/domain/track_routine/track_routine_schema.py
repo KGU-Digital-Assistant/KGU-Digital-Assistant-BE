@@ -28,7 +28,16 @@ class TrackRoutine_create_schema(BaseModel):
     time: str
     repeat: bool
 
-class TrackRoutine_naemcalorie_schema(BaseModel):
+class TrackRoutine_namecalorie_schema(BaseModel):
+    title: str
+    calorie: Optional[float] = None
+
+class TrackRoutine_time_title_schema(BaseModel):
+    time: Optional[str]=None
+    title: Optional[str]=None
+
+class TrackRoutine_time_title_schema(BaseModel):
+    time: str
     title: str
     calorie: Optional[float] = None
 
