@@ -22,6 +22,10 @@ router = APIRouter(
 @router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
 def create_track(current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
+    """
+    트랙 생성,
+    기능명세서 p.19 1번 누를때
+    """
     track = track_crud.track_create(db, current_user)
     return {"track_id": track.id}
 
@@ -29,17 +33,18 @@ def create_track(current_user: User = Depends(user_router.get_current_user),
 @router.patch("/create/next", status_code=status.HTTP_204_NO_CONTENT)
 def update_track(_track_id: int,
                  _track: TrackCreate,
-                 current_user: User = Depends(user_router.get_current_user),
+                 cheating_cnt: int,
+                 _current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     """
-    트랙 생성 하기 누를 때 적용 됨
+    트랙 생성 하기 누를 때 적용 됨, 기능 명세서 p.20
     1. 트랙 내용 채우기
     2. 그룹 생성
     """
-    track = track_crud.track_update(db, _track_id, current_user, _track)
+    track = track_crud.track_update(db, _track_id, _current_user, _track, cheating_cnt)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    group = group_crud.create_group(db, track, current_user.id)
+    group = group_crud.create_group(db, track, _current_user.id)
     if group is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="group not found")
@@ -49,15 +54,16 @@ def update_track(_track_id: int,
 @router.patch("/update/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 def update_track(track_id: int,
                  _track: TrackCreate,
-                 current_user: User = Depends(user_router.get_current_user),
+                 cheating_cnt: int,
+                 _current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     track = track_crud.get_track_by_id(db, track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if track.user_id != current_user.id:
+    if track.user_id != _current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
-    track_crud.track_update(db, track_id, current_user, _track)
+    track_crud.track_update(db, track_id, _current_user, _track, cheating_cnt)
 
 
 @router.post("{track_id}/change/alone-to-multiple", status_code=status.HTTP_204_NO_CONTENT)

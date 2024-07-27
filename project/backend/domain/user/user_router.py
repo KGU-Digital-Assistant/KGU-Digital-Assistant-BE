@@ -600,6 +600,9 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
 # fcm 토큰 발급받아 저장하기 !!
 @router.post("/register")
 async def register_token(request: Request, db: Session = Depends(get_db)):
+    """
+    fcm token 발급받아서 저장하기 !
+    """
     data = await request.json()
     token = data.get('token')
     user_id = data.get('user_id')

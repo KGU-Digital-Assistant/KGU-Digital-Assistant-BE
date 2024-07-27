@@ -17,7 +17,7 @@ def track_create(db: Session, user: User):
 
 
 # 이름 track 찾기
-def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate):
+def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, cheating_cnt: int):
     track = db.query(Track).filter(Track.id == _track_id).first()
     if (track is None):
         return None
@@ -25,6 +25,7 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate):
         return None
 
     track.name = _track.name
+    track.cheating_count = cheating_cnt
     track.water = _track.water or track.water
     track.coffee = _track.coffee or track.coffee
     track.alcohol = _track.alcohol or track.alcohol
@@ -32,6 +33,7 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate):
     track.track_yn = _track.track_yn
     track.start_date = _track.start_date
     track.end_date = _track.end_date
+    track.alone = _track.alone
     db.commit()
     db.refresh(track)
     return track
