@@ -219,6 +219,16 @@ def accept_invitation(group_id: int,
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.patch("/exit/group", status_code=status.HTTP_204_NO_CONTENT)
+def exit_group(current_user: User = Depends(user_router.get_current_user),
+               db: Session = Depends(get_db)):
+    """
+    현재 참여중인 그룹 탈주하기
+    """
+    group_crud.exit_group(db=db, user_id=current_user.id, group_id=current_user.cur_group_id)
+
+
+
 #########################################
 
 @router.get("/get/{user_id}/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
@@ -316,20 +326,20 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
     if Group_willuse is None:
         db_groupnew = Group(
             track_id = track_id,
-            user_id = Track_willuse.user_id,
+            creator = Track_willuse.user_id,
             name = meal_hour_crud.create_file_name(user_id=current_user.id),
             start_day = None,
             finish_day = None,
-            state = 'ready'
+            status = GroupStatus.STARTED
         )
         db.add(db_groupnew)
         db.commit()
         db.refresh(db_groupnew)
         Group_willuse = db_groupnew
-    if Track_willuse.alone == True:
+    if Track_willuse.alone == True: # 개인 트랙일 경우
         group_crud.add_participation(db,user_id=current_user.id,group_id=Group_willuse.id,cheating_count=Track_willuse.cheating_count)
         group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id,duration=Track_willuse.duration)
-    if Track_willuse.alone == False:
+    if Track_willuse.alone == False: # 개인 트랙이 아닐 경우
         group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id, duration=Track_willuse.duration)
     nickname = user_crud.get_User_nickname(db,id=current_user.id)
     return {"trackname" : Track_willuse.name, "nickname" : nickname}

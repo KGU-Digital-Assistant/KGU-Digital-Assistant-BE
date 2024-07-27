@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, insert, update
 from domain.meal_day import meal_day_crud
 from domain.track_routine import track_routine_crud
-from models import Group, Track, Invitation, User,MealDay, Participation
+from models import Group, Track, Invitation, User, MealDay, Participation
 from fastapi import HTTPException
 
 from models import FlagStatus
@@ -12,11 +12,11 @@ from models import FlagStatus
 
 def create_group(db: Session, track: Track, user_id: int):
     db_group = Group(
-                    track_id=track.id,
-                    creator=user_id,
-                    status=GroupStatus.READY
-                    # 종료일 = 시작일 + (track.duration)일
-                )
+        track_id=track.id,
+        creator=user_id,
+        status=GroupStatus.READY
+        # 종료일 = 시작일 + (track.duration)일
+    )
     db.add(db_group)
     db.commit()
     return db_group
@@ -46,36 +46,44 @@ def accept_invitation(db: Session, user_id: int, group_id: int, respond: Respond
 
     user = db.query(User).filter(User.id == user_id).one()
     group = db.query(Group).filter(Group.id == group_id).one()
-    group.users.append(user)
+    track = db.query(Track).filter(Track.id == group.track_id).first()
+
+    insert(Participation).values(
+        user_id=user_id,
+        group_id=group_id,
+        cheating_count=track.cheating_count,
+    )
     db.commit()
+
 
 ###########################################
 #현빈
 ###########################################
 
-def get_Group_bydate(db: Session, user_id:int, date:date):
-    mealday = db.query(MealDay).filter(MealDay.user_id==user_id,MealDay.date==date).first()
+def get_Group_bydate(db: Session, user_id: int, date: date):
+    mealday = db.query(MealDay).filter(MealDay.user_id == user_id, MealDay.date == date).first()
     if mealday is None:
         return None
-    group_info = db.query(Group).filter(Group.user_id==user_id, Group.track_id==mealday.track_id,Group.start_day>=date, Group.finish_day<=date).first()
+    group_info = db.query(Group).filter(Group.user_id == user_id, Group.track_id == mealday.track_id,
+                                        Group.start_day >= date, Group.finish_day <= date).first()
     if group_info is None:
-        return {"detail" : "group not use today"}
+        return {"detail": "group not use today"}
     return group_info
 
-def get_Group_bytrack_id_state_ready(db: Session, track_id:int):
-    groups = db.query(Group).filter(Group.track_id==track_id,
-                                    Group.state=="ready").first()
+
+def get_Group_bytrack_id_state_ready(db: Session, track_id: int):
+    groups = db.query(Group).filter(Group.track_id == track_id,
+                                    Group.status == GroupStatus.READY).first()
     return groups
 
-def get_Group_byuserid_track_id_bystartfinishday(db: Session, user_id:int, track_id:int, date: date):
 
-    groups = db.query(Group).filter(Group.user_id==user_id, Group.track_id==track_id,
-                                    Group.start_day<=date, Group.finish_day>=date
+def get_Group_byuserid_track_id_bystartfinishday(db: Session, user_id: int, track_id: int, date: date):
+    groups = db.query(Group).filter(Group.user_id == user_id, Group.track_id == track_id,
+                                    Group.start_day <= date, Group.finish_day >= date
                                     ).first()
     if groups is None:
         raise HTTPException(status_code=404, detail="Group not found")
     return groups
-
 
 
 def update_group_date(db: Session, group_id: int, date: GroupDate):
@@ -85,7 +93,7 @@ def update_group_date(db: Session, group_id: int, date: GroupDate):
     group.start_day = date.start_date
     group.finish_day = date.end_date
     db.commit()
-    return {"detail" : "group updated successfully"}
+    return {"detail": "group updated successfully"}
 
 
 def participate_group(db: Session, user_id: int, group_id: int):
@@ -111,10 +119,16 @@ def is_finished(db: Session):
             user.cur_group_id = None
             db.commit()
 
-            
+            _updated = update(Participation).where(Participation.user_id == user.id,
+                                                   Participation.group_id == group.id
+                                                   ).values({"flag": FlagStatus.terminated})
+            db.commit()
+
+
 def get_group_by_date_track_id_in_part(db: Session, user_id: int, date: date, track_id: int):
     result = (
-        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag, Participation.c.finish_date)
+        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag,
+                 Participation.c.finish_date)
         .join(Participation, Group.id == Participation.c.group_id)
         .filter(
             Participation.c.user_id == user_id,
@@ -126,22 +140,26 @@ def get_group_by_date_track_id_in_part(db: Session, user_id: int, date: date, tr
     )
     return result if result else None
 
+
 def get_group_track_id_in_part_state_start(db: Session, user_id: int, track_id: int):
     result = (
-        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag, Participation.c.finish_date)
+        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag,
+                 Participation.c.finish_date)
         .join(Participation, Group.id == Participation.c.group_id)
         .filter(
             Participation.c.user_id == user_id,
             Group.track_id == track_id,
-            Group.state =='started'
+            Group.status == GroupStatus.STARTED
         )
         .first()
     )
     return result if result else None
 
+
 def get_group_date_null_track_id_in_part(db: Session, user_id: int, track_id: int):
     result = (
-        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag, Participation.c.finish_date)
+        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag,
+                 Participation.c.finish_date)
         .join(Participation, Group.id == Participation.c.group_id)
         .filter(
             Participation.c.user_id == user_id,
@@ -153,9 +171,11 @@ def get_group_date_null_track_id_in_part(db: Session, user_id: int, track_id: in
     )
     return result if result else None
 
+
 def get_group_by_user_id_all(db: Session, user_id: int):
     result = (
-        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag, Participation.c.finish_date)
+        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag,
+                 Participation.c.finish_date)
         .join(Participation, Group.id == Participation.c.group_id)
         .filter(
             Participation.c.user_id == user_id,
@@ -164,9 +184,11 @@ def get_group_by_user_id_all(db: Session, user_id: int):
     )
     return result if result else []
 
+
 def get_group_by_date_track_id_all(db: Session, date: date, track_id: int):
     result = (
-        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag, Participation.c.finish_date)
+        db.query(Group, Participation.c.cheating_count, Participation.c.user_id, Participation.c.flag,
+                 Participation.c.finish_date)
         .join(Participation, Group.id == Participation.c.group_id)
         .filter(
             Group.start_day <= date,
@@ -177,7 +199,8 @@ def get_group_by_date_track_id_all(db: Session, date: date, track_id: int):
     )
     return result if result else None
 
-def add_participation(db:Session, user_id:int, group_id: int, cheating_count: int):
+
+def add_participation(db: Session, user_id: int, group_id: int, cheating_count: int):
     stmt = insert(Participation).values(
         user_id=user_id,
         group_id=group_id,
@@ -188,6 +211,7 @@ def add_participation(db:Session, user_id:int, group_id: int, cheating_count: in
     db.execute(stmt)
     db.commit()
     return
+
 
 def get_track_id_all_in_date(db: Session, start_date: date, finish_date: date, user_id: int):
     track_ids = []
@@ -200,7 +224,9 @@ def get_track_id_all_in_date(db: Session, start_date: date, finish_date: date, u
         date_iter += timedelta(days=1)
     return track_ids
 
-def update_group_mealday_pushing_start(db: Session, user_id: int, track_id: int, date: date, group_id: int, duration: int):
+
+def update_group_mealday_pushing_start(db: Session, user_id: int, track_id: int, date: date, group_id: int,
+                                       duration: int):
     date_iter = date
     new_group_finish_date = date + timedelta(days=duration)
 
@@ -271,13 +297,26 @@ def update_group_mealday_pushing_start(db: Session, user_id: int, track_id: int,
 
     # 새로운 MealDay의 Track_id 및 goalcalorie 설정
     date_iter = date
-    days=1
+    days = 1
     while date_iter <= groupnew.finish_day:
         mealnew = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date_iter)
         if mealnew:
             mealnew.track_id = track_id
-            mealnew.goalcalorie = track_routine_crud.get_goal_caloire_bydate_using_trackroutine(db, days=days, track_id=track_id, date=date_iter)
+            mealnew.goalcalorie = track_routine_crud.get_goal_caloire_bydate_using_trackroutine(db, days=days,
+                                                                                                track_id=track_id,
+                                                                                                date=date_iter)
             db.add(mealnew)
         date_iter += timedelta(days=1)
-        days+=1
+        days += 1
+    db.commit()
+
+
+def exit_group(db: Session, user_id: int, group_id: int):
+    user = db.query(User).filter(User.id == user_id).first()
+    user.cur_group_id = None
+
+    _updated = (update(Participation).where(Participation.c.user_id == user_id,
+                                            Participation.c.group_id == group_id)
+                .values(flag=FlagStatus.terminated, finish_date=date.today()))
+
     db.commit()
