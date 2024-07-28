@@ -89,21 +89,21 @@ def get_id_Mentor(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="mentor not found")
     return Mentors ##전체 열 출력
 
-@router.patch("/addUser/{id}", response_model=mentor_schema.Mentor_add_User_schema) ## mentor의 user.id 입력
-def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db)):
-    Mentors=mentor_crud.get_Mentor(db,user_id=id)
-    if Mentors is None:
-        raise HTTPException(status_code=404, detail="mentor not found")
-    Users =user_crud.get_User_byemail(db,mail=email)
-    if Users is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    Users.mentor_id = Mentors.id
-    db.add(Users)
-    db.commit()
-    db.refresh(Users)
-    return Users
+#@router.patch("/addUser/{id}", response_model=mentor_schema.Mentor_add_User_schema) ## mentor의 user.id 입력
+#def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db)):
+#    Mentors=mentor_crud.get_Mentor(db,user_id=id)
+#    if Mentors is None:
+#        raise HTTPException(status_code=404, detail="mentor not found")
+#    Users =user_crud.get_User_byemail(db,mail=email)
+#    if Users is None:
+#        raise HTTPException(status_code=404, detail="User not found")
+#    Users.mentor_id = Mentors.id
+#    db.add(Users)
+#    db.commit()
+#    db.refresh(Users)
+#    return Users
 
-@router.get("/findUser/{id}",response_model=List[mentor_schema.find_User])
+@router.get("/findUser",response_model=List[mentor_schema.find_User])
 def find_User(current_user: User = Depends(get_current_user), name:str = Query(...), db: Session = Depends(get_db)):
     """
     회원들  : 15page 1번 멘토가 회원찾는거
@@ -115,7 +115,7 @@ def find_User(current_user: User = Depends(get_current_user), name:str = Query(.
         raise HTTPException(status_code=404, detail="Users not found")
     return Users
 
-@router.get("/getUserInfo/{id}/{daytime}", response_model=mentor_schema.Mentor_get_UserInfo_schema)
+@router.get("/getUserInfo/{daytime}", response_model=mentor_schema.Mentor_get_UserInfo_schema)
 def get_Mentors_User(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     회원들리스트 정보(당일 Calorie, 식단내용 등) 조회 : 15page 4번 - 멘토가 회원리스트 조회

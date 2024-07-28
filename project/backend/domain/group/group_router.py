@@ -117,11 +117,11 @@ def accept_invitation(user_id: int, group_id: int, db: Session = Depends(get_db)
 
 #########################################
 
-@router.get("/get/{user_id}/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
+@router.get("/get/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
 def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     해당일 Track 사용시 Track.name, D-day 조회 : 9page 2번
-     - 입력예시 : user_id = 1, time = 2024-06-01
+     - 입력예시 : time = 2024-06-01
      - 출력 : Track.name, Dday
     """
     try:
@@ -143,11 +143,11 @@ def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_cu
             dday = (date - group.start_day).days + 1
     return {"name": track_name, "dday":dday} ##name, d-day 열출력
 
-@router.get("/get/{user_id}/{track_id}/{daytime}/name", response_model=group_schema.Group_get_track_name_schema)
+@router.get("/get/{track_id}/{daytime}/name", response_model=group_schema.Group_get_track_name_schema)
 def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
     """
     트랙 시작전 사용중이였던 Track.name(old)(사용중~사용예정트랙들) / Track.name(new) 조회 : 23page 1-1번, 23page 1-2번
-     - 입력예시 : user_id=1, daytime = 2024-06-01, track_id = 14
+     - 입력예시 : daytime = 2024-06-01, track_id = 14
      - 출력 : Track.name(old), Track.name(new)
     """
     try:
@@ -189,11 +189,11 @@ def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: U
 #    return {"trackold" : trackold, "tracknew" : tracknew}
 
 
-@router.post("/start_track/{user_id}/{track_id}/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/start_track/{track_id}/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
 def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User = Depends(get_current_user),db: Session= Depends(get_db)):
     """
     트랙 시작하기 (기존 Mealday의 track_id, goal_calorie 변경 -> 기존 group 종료일 변경 -> 새로운 Group의 시작종료일세팅 ->Mealday 정보수정
-     - 입력예시 : user_id = 1, track_id = 14
+     - 입력예시 : track_id = 14, daytime : 2024-09-01
      - 출력 : Track.name, User.nickname
        코드 순서 = mealday tbl 없는경우 생성 -> 시작할 트랙 기간 start~finish 날짜 사이에 예정된 트랙있는 경우(but 트
         해당 트랙들에 정해진 mealday값들 초기화 및 참여tbl flag, 종료일 변경 -> 새 group tbl 시작일 종료일 설정

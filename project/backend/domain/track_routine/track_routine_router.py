@@ -56,7 +56,7 @@ def get_TrackRoutine_track_id_all(track_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="TrackRoutine not found")
     return [trackroutines]
 
-@router.get("/get/{user_id}/{time}/title_calorie/mine", response_model=List[track_routine_schema.TrackRoutine_namecalorie_schema])
+@router.get("/get/{time}/title_calorie/mine", response_model=List[track_routine_schema.TrackRoutine_namecalorie_schema])
 def get_TrackRoutine_track_title_calorie_user(time: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     해당일 시간대에 Track 사용시 먹어야할 음식title, caloire 조회 : 9page 7-2번

@@ -16,11 +16,11 @@ router=APIRouter(
     prefix="/comment"
 )
 
-@router.get("/get/{user_id}/{time}/text/mine", response_model=List[comment_schema.Comment_id_name_text])
+@router.get("/get/{time}/text/mine", response_model=List[comment_schema.Comment_id_name_text])
 def get_Comment_date_user_id_text(time: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     유저 식단게시(MealHour) 관한 댓글 조회 : 9page 5번, 12page 5번
-     - 입력예시 : user_id = 1, time = 2024-07-01 오후간식
+     - 입력예시 : time = 2024-07-01 오후간식
      - 출력 : Comment.user_id, User.name, MealDay.alcohol
     """
     comment = comment_crud.get_Comment(db, user_id=current_user.id, time=time)
@@ -40,7 +40,7 @@ def get_Comment_date_user_id_text(user_id: int, time: str, db: Session = Depends
         raise HTTPException(status_code=404, detail="Comments not found")
     return comment ##user_id, text 열출력(전체 행)
 
-@router.post("/post/{user_id}/{time}/{user_id2}",status_code=status.HTTP_204_NO_CONTENT) ## 게시글 주인id, 시간대, 댓글작성자
+@router.post("/post/{user_id}/{time}",status_code=status.HTTP_204_NO_CONTENT) ## 게시글 주인id, 시간대, 댓글작성자
 async def post_comment(user_id: int, time: str,text: str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     유저 식단게시(MealHour) 관한 댓글 입력 : 12page 5-2번, 17page 7번 (user_id2 = 댓글 작성자)
