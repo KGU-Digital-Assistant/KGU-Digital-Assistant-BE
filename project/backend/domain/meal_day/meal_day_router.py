@@ -29,11 +29,11 @@ def get_MealDay_date(user_id: int, daytime: str ,db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Meal posting not found")
     return [MealDaily] ##전체 열 출력
 
-@router.get("/get/{user_id}/{daytime}/cheating", response_model=meal_day_schema.MealDay_cheating_get_schema)
+@router.get("/get/{daytime}/cheating", response_model=meal_day_schema.MealDay_cheating_get_schema)
 def get_MealDay_date_cheating(daytime: str,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단일일(MealDay) cheating 여부 조회 : 9page 4-1번
-     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 입력예시 : daytime = 2024-06-01
      - 출력 : MealDay.cheating
     """
     try:
@@ -45,11 +45,11 @@ def get_MealDay_date_cheating(daytime: str,current_user: User = Depends(get_curr
         raise HTTPException(status_code=404, detail="Meal posting not found")
     return cheating  ## cheating 열만 출력
 
-@router.get("/get/{user_id}/{daytime}/cheating_count", response_model=meal_day_schema.MealDay_cheating_count_get_schema)
+@router.get("/get/{daytime}/cheating_count", response_model=meal_day_schema.MealDay_cheating_count_get_schema)
 def get_MealDay_date_cheating_count(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단일일(MealDay) cheating 갯수 조회 : 9page 4-2번
-     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 입력예시 :  daytime = 2024-06-01
      - 출력 : Participation.cheating
     """
     try:
@@ -71,12 +71,12 @@ def get_MealDay_date_cheating_count(daytime: str, current_user: User = Depends(g
     group, cheating_count, user_id2, flag, finish_date = group_participation
     return {"cheating_count": cheating_count, "user_id2": user_id2}
 
-@router.patch("/update/{user_id}/{daytime}/cheating", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/update/{daytime}/cheating", status_code=status.HTTP_204_NO_CONTENT)
 async def update_MealDay_date_cheating(daytime: str,current_user: User = Depends(get_current_user),
                                   db: Session = Depends(get_db)):
     """
     식단일일(MealDay) cheating 갯수 차감 : 9page 4-3번
-     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 입력예시 : daytime = 2024-06-01
      - 결과 : Participation.cheating_count - 1
     """
     try:
@@ -125,11 +125,11 @@ async def update_MealDay_date_cheating(daytime: str,current_user: User = Depends
         return {"detail": "cheating updated successfully"}
 
 
-@router.get("/get/{user_id}/{daytime}/wca/mine", response_model=meal_day_schema.MealDay_wca_get_schema)
+@router.get("/get/{daytime}/wca/mine", response_model=meal_day_schema.MealDay_wca_get_schema)
 def get_MealDay_date_wca(daytime: str , current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단일일(MealDay) wca 조회 : 9page 5번, 13page 4번
-     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 입력예시 : daytime = 2024-06-01
      - 출력 : MealDay.water, MealDay.coffee, MealDay.alcohol
     """
     try:
@@ -157,11 +157,11 @@ def get_MealDay_date_wca(user_id: int, daytime: str ,db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Meal posting not found")
     return wca ## water, coffee, alcohol 열만 출력
 
-@router.patch("/update/{user_id}/{daytime}/wca", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/update/{daytime}/wca", status_code=status.HTTP_204_NO_CONTENT)
 def update_Daymeal_date_wca(daytime: str, mealdaily_wca_update: meal_day_schema.Mealday_wca_update_schema, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단일일(MealDay) wca 업뎃 : 9page 5번
-     - 입력예시 : user_id = 1, daytime = 2024-06-01, Json{water=1, coffee=2, alcohol = 5}
+     - 입력예시 : daytime = 2024-06-01, Json{water=1, coffee=2, alcohol = 5}
     """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
@@ -176,11 +176,11 @@ def update_Daymeal_date_wca(daytime: str, mealdaily_wca_update: meal_day_schema.
 
     return {"detail": "wca updated successfully"}
 
-@router.post("/post/{user_id}/{daytime}",status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/post/{daytime}",status_code=status.HTTP_204_NO_CONTENT)
 def post_MealDay_date(daytime: str, current_user: User = Depends(get_current_user), db: Session=Depends(get_db)):
     """
     식단일일(MealDay) db생성 : 앱실행시(당일날짜로), 13page 1번 (클릭시 생성), track시작시 해당기간에 생성
-     - 입력예시 : user_id = 1, daytime = 2024-06-01
+     - 입력예시 : daytime = 2024-06-01
     """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
@@ -212,11 +212,11 @@ def post_MealDay_date(daytime: str, current_user: User = Depends(get_current_use
         db.commit()
         db.refresh(new_meal)
 
-@router.get("/get/{user_id}/{daytime}/calorie", response_model=meal_day_schema.MealDay_calorie_get_schema)
+@router.get("/get/{daytime}/calorie", response_model=meal_day_schema.MealDay_calorie_get_schema)
 def get_MealDay_date_calorie(daytime: str ,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단일일(MealDay) goal, now calorie : 13page 3-1번
-     - 입력예시 : user_id = 1, time = 2024-06-01아침
+     - 입력예시 : time = 2024-06-01아침
      - 출력 : MealDay.goalcaloire, MealDay.nowcaloire
     """
     try:
@@ -229,11 +229,11 @@ def get_MealDay_date_calorie(daytime: str ,current_user: User = Depends(get_curr
     return calorie ## goal,now calorie 열만 출력
 
 
-@router.get("/get/{id}/{daytime}/track/mine", response_model=meal_day_schema.MealDay_track_today_schema)
+@router.get("/get/{daytime}/track/mine", response_model=meal_day_schema.MealDay_track_today_schema)
 def get_Track_Mealhour(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단일일(MealDay) 식단게시글(MealHour) 전체조회(track 이용중일떄만) : 13page 2-1번
-     - 입력예시 : user_id = 1, time = 2024-06-01아침
+     - 입력예시 : time = 2024-06-01아침
      - 출력 : 당일 식단게시글[MealHour.name, MealHour.calorie, MealHour.date, MealHour.heart, picture_url, Mealhour.track_goal]
     """
     try:
@@ -315,11 +315,11 @@ def get_Track_Mealhour(id: int, daytime: str, db: Session = Depends(get_db)):
 
     return meal_day_schema.MealDay_track_today_schema(mealday=result)
 
-@router.get("/get/{user_id}/{daytime}/dday_goal_real",response_model=meal_day_schema.MealDay_track_dday_goal_real_schema)
+@router.get("/get/{daytime}/dday_goal_real",response_model=meal_day_schema.MealDay_track_dday_goal_real_schema)
 def get_MealDay_dday_goal_real(daytime: str, current_user: User = Depends(get_current_user), db: Session=Depends(get_db)):
     """
     해당일 트랙 일차 및 루틴 표시 : 13page 6번
-     - 입력예시 : user_id = 1, time = 2024-06-01
+     - 입력예시 : time = 2024-06-01
      - 출력 : D-day, [TrackRoutin.time(아침,점심)], [MealHour.time(아침,점심), MealHour.name(음식명)]
     """
     try:

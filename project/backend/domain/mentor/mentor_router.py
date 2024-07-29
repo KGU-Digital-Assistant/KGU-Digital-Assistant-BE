@@ -35,20 +35,10 @@ async def mentor_create(_mentor_create: mentor_schema.MentorCreate,
     create_mentor(mentor_create=_mentor_create, _user_id=_current_user.id, db=db)
     return {"status": "ok"}
 
-
 @router.post("/add/user", status_code=201)
-def invite_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
+def connect_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
                            _mentor: User = Depends(user_router.get_current_user),
                            db: Session = Depends(get_db)):
-    """
-    트레이너가 회원을 담당하고자 요청보냄
-    """
-    if not mentor_crud.get_mentor(_mentor.id, db):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not Mentor",
-        )
-
     mentee = user_crud.get_user_by_username(db, _mentee.username)
     if not mentee:
         raise HTTPException(
@@ -61,66 +51,8 @@ def invite_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
             detail="You are already connected",
         )
 
-    invitation = mentor_crud.mentor_invite(mentee_id=_mentee.id, mentor_id=_mentor.id, db=db)
-
-    fcm_token = mentee.fcm_token
-    response = user_crud.send_push_invite(
-        fcm_token=fcm_token,
-        title="담당 트레이너 요청",
-        body=f"{_mentor.username} 트레이너님이 회원님을 담당하고자 요청을 보냈습니다."
-    )
-    return {"response" : response, "invitation_id": invitation.id}
-
-
-@router.post("/invitation/{invite_id}/respond", status_code=201)
-def respond_mentee(invite_id: int,
-                   response: str,
-                   _mentee: User = Depends(user_router.get_current_user),
-                   db: Session = Depends(get_db)):
-    """
-    회원이 수락 또는 거절 응답 api
-    : response에 수락(accepted)인지 거절(rejected)인지 줘야함
-    """
-    invitation = mentor_crud.get_invite_by_id(invite_id, db)
-    if not invitation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invitation not found",
-        )
-
-    if response.lower() not in ["accepted", "rejected"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid response",
-        )
-
-    if _mentee.mentor_id:
-        user_crud.invitation_respond(invitation_id=invitation.id,
-                                     response="rejected",
-                                     db=db,
-                                     _mentee_id=_mentee.id)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are already connected",
-        )
-
-    user_crud.invitation_respond(invitation_id=invitation.id,
-                                 response=response,
-                                 db=db,
-                                 _mentee_id=_mentee.id)
+    matching_mentor(mentee=mentee, _mentor_id=_mentor.id, db=db)
     return {"status": "ok"}
-
-@router.post("/manage/delete", status_code=201)
-def delete_mentor(_current_user: User = Depends(user_router.get_current_user),
-                  db: Session = Depends(get_db)):
-    if user_crud.delete_mentor(_current_user.id, db):
-        return {"status": "ok"}
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="User Not Found",
-    )
-
-
 
 @router.patch("/gym/update", status_code=201)
 def gym_update(_mentor_gym: mentor_schema.MentorGym,
@@ -140,6 +72,22 @@ def gym_update(_mentor_gym: mentor_schema.MentorGym,
     return {"status": "ok"}
 
 
+@router.get("/mentee/list")
+def list_mentees(
+        _current_user: User = Depends(user_router.get_current_user),
+        db: Session = Depends(get_db)):
+    """
+    회원들  : 15page 1번 멘토가 회원찾는거
+     - 입력예시 : Mentor.user_id = 1, User.name
+     - 출력 : 회원목록[User.id, User.name]
+    """
+    users = mentor_crud.get_mentee_list_by_mentor_id(db, mentor_id=_current_user.id)
+    if users is None:
+        raise HTTPException(status_code=404, detail="Users not found")
+    users_list = [{"id": user.id, "name": user.name} for user in users]
+    return users_list
+
+
 @router.delete("/delete", status_code=204)
 def delete_mentor(cur_user: User = Depends(user_router.get_current_user), db: Session = Depends(get_db)):
     if mentor_delete(cur_user.id, db):
@@ -153,26 +101,26 @@ def delete_mentor(cur_user: User = Depends(user_router.get_current_user), db: Se
 
 @router.get("/get/{id}", response_model=mentor_schema.Mentor_schema)
 def get_id_Mentor(id: int, db: Session = Depends(get_db)):
-    Mentors = mentor_crud.get_mentor(db, user_id=id)
+    Mentors = mentor_crud.get_Mentor(db,user_id=id)
     if Mentors is None:
         raise HTTPException(status_code=404, detail="mentor not found")
     return Mentors ##전체 열 출력
 
-@router.patch("/addUser/{id}", response_model=mentor_schema.Mentor_add_User_schema) ## mentor의 user.id 입력
-def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db)):
-    Mentors=mentor_crud.get_mentor(db, user_id=id)
-    if Mentors is None:
-        raise HTTPException(status_code=404, detail="mentor not found")
-    Users =user_crud.get_User_byemail(db,mail=email)
-    if Users is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    Users.mentor_id = Mentors.id
-    db.add(Users)
-    db.commit()
-    db.refresh(Users)
-    return Users
+# @router.patch("/addUser/{id}", response_model=mentor_schema.Mentor_add_User_schema) ## mentor의 user.id 입력
+# def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db)):
+#     Mentors=mentor_crud.get_Mentor(db,user_id=id)
+#     if Mentors is None:
+#         raise HTTPException(status_code=404, detail="mentor not found")
+#     Users =user_crud.get_User_byemail(db,mail=email)
+#     if Users is None:
+#         raise HTTPException(status_code=404, detail="User not found")
+#     Users.mentor_id = Mentors.id
+#     db.add(Users)
+#     db.commit()
+#     db.refresh(Users)
+#     return Users
 
-@router.get("/findUser/{id}",response_model=List[mentor_schema.find_User])
+@router.get("/findUser",response_model=List[mentor_schema.find_User])
 def find_User(current_user: User = Depends(get_current_user), name:str = Query(...), db: Session = Depends(get_db)):
     """
     회원들  : 15page 1번 멘토가 회원찾는거
@@ -184,7 +132,7 @@ def find_User(current_user: User = Depends(get_current_user), name:str = Query(.
         raise HTTPException(status_code=404, detail="Users not found")
     return Users
 
-@router.get("/getUserInfo/{id}/{daytime}", response_model=mentor_schema.Mentor_get_UserInfo_schema)
+@router.get("/getUserInfo/{daytime}", response_model=mentor_schema.Mentor_get_UserInfo_schema)
 def get_Mentors_User(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     회원들리스트 정보(당일 Calorie, 식단내용 등) 조회 : 15page 4번 - 멘토가 회원리스트 조회

@@ -122,7 +122,7 @@ class User(BaseModel):
     birth: Optional[datetime.date] = None
     create_date: datetime.datetime
     nickname: str
-    rank: float
+    rank: str
     profile_picture: Optional[str] = None
     mentor_id: Optional[int] = None
     email: str

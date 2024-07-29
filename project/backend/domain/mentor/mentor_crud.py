@@ -91,3 +91,11 @@ def mentor_invite(mentee_id: int, mentor_id: int, db: Session):
 
 def get_invite_by_id(invite_id: int, db: Session):
     return db.query(MentorInvite).filter(MentorInvite.id == invite_id).first()
+
+
+def get_mentee_list_by_mentor_id(db: Session, mentor_id: int):
+    users = db.query(User).filter(User.mentor_id == mentor_id).all()
+    if not users:
+        raise HTTPException(status_code=404, detail="mentor not found")
+
+    return users

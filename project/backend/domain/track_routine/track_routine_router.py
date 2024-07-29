@@ -4,8 +4,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from database import get_db
 from typing import List
+
 from domain.track_routine.track_routine_schema import TrackRoutineSchema
-from models import TrackRoutine, User
+from models import TrackRoutine,User
 from domain.track_routine import track_routine_schema, track_routine_crud
 from domain.track import track_crud
 from domain.user.user_router import get_current_user
@@ -64,7 +65,7 @@ def update_track_routine(routine_id: int,
     return {"status": "ok"}
 
 
-@router.get("/get/{routine_id}", response_model=TrackRoutineSchema)
+@router.get("/get/{routine_id}", response_model=track_routine_schema.TrackRoutineSchema)
 def get_track_routine(routine_id: int, db: Session = Depends(get_db)):
     """
     routine 하나 반환
@@ -85,8 +86,7 @@ def get_TrackRoutine_track_id_all(track_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="TrackRoutine not found")
     return [trackroutines]
 
-  
-@router.get("/get/{user_id}/{time}/title_calorie/mine", response_model=List[track_routine_schema.TrackRoutine_namecalorie_schema])
+@router.get("/get/{time}/title_calorie/mine", response_model=List[track_routine_schema.TrackRoutine_namecalorie_schema])
 def get_TrackRoutine_track_title_calorie_user(time: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     해당일 시간대에 Track 사용시 먹어야할 음식title, caloire 조회 : 9page 7-2번
@@ -186,7 +186,7 @@ def get_TrackRoutine_track_title_calorie_mentor(user_id: int, time: str, db: Ses
 
     return [{"title": routine.title, "calorie": routine.calorie} for routine in combined_results]
 
-  
+
 @router.get("/get/avg-calorie/{track_id}")
 def get_avg_calorie(track_id: int, db: Session = Depends(get_db)):
     """

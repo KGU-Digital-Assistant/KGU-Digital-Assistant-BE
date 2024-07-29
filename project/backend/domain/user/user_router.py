@@ -600,6 +600,9 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
 # fcm 토큰 발급받아 저장하기 !!
 @router.post("/register")
 async def register_token(request: Request, db: Session = Depends(get_db)):
+    """
+    fcm token 발급받아서 저장하기 !
+    """
     data = await request.json()
     token = data.get('token')
     user_id = data.get('user_id')
@@ -700,7 +703,7 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
     return User  ##전체 열 출력
 
 
-@router.get("/get/{id}/rank", response_model=user_schema.UserRank)
+@router.get("/get/rank", response_model=user_schema.UserRank)
 def get_id_User_rank(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     유저랭크 조회 : 9page 3번 (현재 보류)
@@ -713,7 +716,7 @@ def get_id_User_rank(current_user: User = Depends(get_current_user), db: Session
     return {"rank": rank}  ##rank 열만 출력
 
 
-@router.get("/get/{id}/nickname/mine", response_model=user_schema.Usernickname)
+@router.get("/get/nickname/mine", response_model=user_schema.Usernickname)
 def get_id_User_nickname_user(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     유저 Nickname 조회 : 11page 1번, 12page 1번
@@ -751,7 +754,7 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
     return {"name": name}  ##name 열만 출력
 
 
-@router.post("/upload_profile_picture/{id}")
+@router.post("/upload_profile_picture")
 async def upload_profile_picture(current_user: User = Depends(get_current_user), file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
@@ -784,7 +787,7 @@ async def upload_profile_picture(current_user: User = Depends(get_current_user),
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/get_profile_picture/{id}")
+@router.get("/get_profile_picture")
 async def get_profile_picture(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
