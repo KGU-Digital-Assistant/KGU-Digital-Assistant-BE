@@ -71,6 +71,23 @@ def gym_update(_mentor_gym: mentor_schema.MentorGym,
         )
     return {"status": "ok"}
 
+
+@router.get("/mentee/list")
+def list_mentees(
+        _current_user: User = Depends(user_router.get_current_user),
+        db: Session = Depends(get_db)):
+    """
+    회원들  : 15page 1번 멘토가 회원찾는거
+     - 입력예시 : Mentor.user_id = 1, User.name
+     - 출력 : 회원목록[User.id, User.name]
+    """
+    users = mentor_crud.get_mentee_list_by_mentor_id(db, mentor_id=_current_user.id)
+    if users is None:
+        raise HTTPException(status_code=404, detail="Users not found")
+    users_list = [{"id": user.id, "name": user.name} for user in users]
+    return users_list
+
+
 @router.delete("/delete", status_code=204)
 def delete_mentor(cur_user: User = Depends(user_router.get_current_user), db: Session = Depends(get_db)):
     if mentor_delete(cur_user.id, db):
