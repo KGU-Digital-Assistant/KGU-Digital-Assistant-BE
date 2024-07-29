@@ -87,6 +87,7 @@ class Track(Base):  # 식단트랙
     duration = Column(Integer)  # Interval : 일, 시간, 분, 초 단위로 기간을 표현 가능, 정확한 시간의 간격(기간)
     track_yn = Column(Boolean, default=True)  # 트랙 생성자가 이를 삭제하면 남들도 이거 사용 못하게 함
     cheating_count = Column(Integer, default=0)
+    create_time = Column(DateTime)
     start_date = Column(Date)
     finish_date = Column(Date)
     share_count = Column(Integer, default=0)

@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from database import get_db
 from typing import List
+
+from domain.track_routine.track_routine_schema import TrackRoutineSchema
 from models import TrackRoutine,User
 from domain.track_routine import track_routine_schema, track_routine_crud
 from domain.track import track_crud
@@ -63,7 +65,7 @@ def update_track_routine(routine_id: int,
     return {"status": "ok"}
 
 
-@router.get("/get/{routine_id}", response_model=TrackRoutineSchema)
+@router.get("/get/{routine_id}", response_model=track_routine_schema.TrackRoutineSchema)
 def get_track_routine(routine_id: int, db: Session = Depends(get_db)):
     """
     routine 하나 반환

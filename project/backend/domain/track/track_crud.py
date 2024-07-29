@@ -9,7 +9,8 @@ from domain.group import group_crud
 
 def track_create(db: Session, user: User):
     db_track = Track(
-        user_id=user.id
+        user_id=user.id,
+        create_time=datetime.now(),
     )
     db.add(db_track)
     db.commit()
@@ -110,6 +111,7 @@ def copy_multiple_track(db: Session, track: Track, user_id: int):
         finish_date=track.finish_date,
         cheating_count=track.cheating_count,
         alone=False,
+        create_time=datetime.now(),
         share_count=track.share_count + 1,
         # origin_id=track.id
     )
