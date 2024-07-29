@@ -17,7 +17,7 @@ router=APIRouter(
     prefix="/track/routine"
 )
 
-@router.get("/get/{track_id}", response_model=track_routine_schema.TrackRoutine_schema)
+@router.get("/get/{track_id}", response_model=track_routine_schema.TrackRoutineSchema)
 def get_TrackRoutine_track_id(track_id: int, db: Session = Depends(get_db)):
     track_routines = track_routine_crud.get_TrackRoutine_by_track_id(db,track_id=track_id)
     if track_routines is None:
@@ -40,18 +40,46 @@ def create_TrackRoutine(track_id: int,
 @router.delete("/delete/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_TrackRoutine(track_id: int, db: Session = Depends(get_db)):
     """
-    트랙 생성 중에 뒤로가기 눌렀을 때, 만든 루틴 다 삭제
+    트랙 생성 중에 뒤로가기 눌렀을 때, 만든 루틴과 트랙 다 삭제
     """
     track = track_crud.get_track_by_id(db, track_id)
     if track is None:
         raise HTTPException(status_code=404, detail="Track does not exist")
 
     track_routine_crud.delete_all(db, track_id)
+    track_crud.delete_track(db, track_id)
+
+
+
+@router.patch("/update/{routine_id}")
+def update_track_routine(routine_id: int,
+                         _routine: track_routine_schema.TrackRoutineCreate,
+                         db: Session = Depends(get_db)):
+    routine = track_routine_crud.get_routine_by_routine_id(db=db, routine_id=routine_id)
+    if routine is None:
+        raise HTTPException(status_code=404, detail="Routine does not exist")
+    track_routine_crud.update_routine(_routine=_routine, _routine_id=routine_id, db=db)
+
+    return {"status": "ok"}
+
+
+@router.get("/get/{routine_id}", response_model=TrackRoutineSchema)
+def get_track_routine(routine_id: int, db: Session = Depends(get_db)):
+    """
+    routine 하나 반환
+    """
+    routine = track_routine_crud.get_routine_by_routine_id(db=db, routine_id=routine_id)
+    if routine is None:
+        raise HTTPException(status_code=404, detail="Routine does not exist")
+    return routine
+
 
 ####################################################
-@router.get("/get/{track_id}", response_model=List[track_routine_schema.TrackRoutine_schema])
+
+
+@router.get("/get/{track_id}", response_model=List[track_routine_schema.TrackRoutineSchema])
 def get_TrackRoutine_track_id_all(track_id: int, db: Session = Depends(get_db)):
-    trackroutines = track_routine_crud.get_TrackRoutine_bytrack_id(db,track_id=track_id)
+    trackroutines = track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
     if trackroutines is None:
         raise HTTPException(status_code=404, detail="TrackRoutine not found")
     return [trackroutines]
@@ -155,3 +183,11 @@ def get_TrackRoutine_track_title_calorie_mentor(user_id: int, time: str, db: Ses
         raise HTTPException(status_code=404, detail="No Use TrackRoutine today")
 
     return [{"title": routine.title, "calorie": routine.calorie} for routine in combined_results]
+
+
+@router.get("/get/avg-calorie/{track_id}")
+def get_avg_calorie(track_id: int, db: Session = Depends(get_db)):
+    """
+    목표 일일 칼로리 -> 모든 루틴 칼로리의 합 / 루틴 일 수
+    """
+    return track_routine_crud.get_calorie_average(track_id=track_id, db=db)

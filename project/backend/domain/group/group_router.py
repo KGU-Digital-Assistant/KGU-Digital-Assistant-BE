@@ -2,13 +2,13 @@ import firebase_admin
 from fastapi import APIRouter, HTTPException, Depends
 from firebase_admin import credentials, messaging
 from sqlalchemy.exc import NoResultFound
-from domain.group import group_schema,group_crud
+from domain.group import group_schema, group_crud
 from sqlalchemy.orm import Session
 from starlette import status
 from starlette.config import Config
 from starlette.responses import JSONResponse
+from domain.group.group_schema import GroupCreate, GroupSchema, GroupDate, GroupStatus
 from datetime import datetime, timedelta, date
-from domain.group.group_schema import GroupCreate, GroupSchema
 from domain.meal_hour import meal_hour_crud
 from domain.meal_day import meal_day_crud
 from domain.user import user_crud
@@ -21,6 +21,8 @@ from models import Group, User, Track, MealDay
 from database import get_db
 from pyfcm import FCMNotification
 
+import schedule
+
 router = APIRouter(
     prefix="/track/group",
 )
@@ -29,64 +31,151 @@ router = APIRouter(
 # fcm_api_key = config('FIREBASE_FCM_API_KEY')
 # push_service = FCMNotification(api_key=fcm_api_key)
 
-@router.post("/append")
-async def add_track(user_id: int, group_id: int, db: Session = Depends(get_db)):
-    group_crud.create_invitation(db, user_id, group_id)
-    group_crud.accept_invitation(db=db, user_id=user_id, group_id=group_id)
+
+def update_group_status(db: Session):
+    """
+    매일 끝난 그룹이 있는지 확인
+    """
+    group_crud.is_finished(db=db)
+
+
+# 매일 한 번씩 실행.
+schedule.every().day.at("00:00").do(update_group_status)
+
+
+# @router.post("/append")
+# async def add_track(user_id: int, group_id: int, db: Session = Depends(get_db)):
+#     """
+#     서버 테스트용
+#     """
+#     group_crud.create_invitation(db, user_id, group_id)
+#     group_crud.accept_invitation(db=db, user_id=user_id, group_id=group_id)
+
+
+@router.get("/get/my_group")
+def get_my_group(current_user: User = Depends(user_router.get_current_user), db: Session = Depends(get_db)):
+    group = group_crud.get_group_by_id(db, current_user.cur_group_id)
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="현재 참여 중인 그룹 없음."
+        )
+    return group
 
 
 # 그룹 생성
-@router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
-def create_track_group(_group: GroupCreate,
-                       track_id: int,
-                       current_user: User = Depends(user_router.get_current_user),
-                       db: Session = Depends(get_db)):
-    track = db.query(Track).filter(Track.id == track_id).first()
-    if not track:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Track does not exist",
-        )
+# @router.post("/create/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+# def create_track_group(_group: GroupCreate,
+#                        track_id: int,
+#                        current_user: User = Depends(user_router.get_current_user),
+#                        db: Session = Depends(get_db)):
+#     track = track_crud.get_track_by_id(track_id=track_id, db=db)
+#     if not track:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Track does not exist",
+#         )
+#
+#     if track.user_id != current_user.id:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Unauthorized"
+#         )
+#
+#     group = group_crud.create_group(db=db, _group=_group, track=track, user_id=current_user.id)
+#     if not track.share:
+#         group_crud.participate_group(db=db, user_id=current_user.id, group_id=group.id)
 
-    if track.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized"
-        )
 
-    group_crud.create_group(db=db, _group=_group, track=track, user_id=current_user.id)
-
-
-@router.get("/get/{group_id}", status_code=status.HTTP_200_OK, response_model=GroupSchema)
+@router.get("/get/{group_id}", status_code=status.HTTP_200_OK)
 def get_group(group_id: int, db: Session = Depends(get_db)):
     return group_crud.get_group_by_id(db=db, group_id=group_id)
 
 
+@router.get("/get/{group_id}", status_code=status.HTTP_200_OK)
+
+
+@router.patch("/update/date/{group_id}")
+def update_track(group_id: int, date: group_schema.GroupDate, db: Session = Depends(get_db)):
+    """
+    날짜 수정
+    """
+    return group_crud.update_group_date(db=db, group_id=group_id, date=date)
+
+
+@router.post("/invite-me", status_code=status.HTTP_204_NO_CONTENT)
+def invite_me(group_id: int,
+              current_user: User = Depends(user_router.get_current_user),
+              db: Session = Depends(get_db)):
+    """
+    본인도 트랙에 참여
+    """
+    group = group_crud.get_group_by_id(db=db, group_id=group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group does not exist",
+        )
+
+    if group.status == GroupStatus.STARTED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="트랙이 진행중 입니다."
+        )
+
+    if group.status == GroupStatus.TERMINATED:
+        track = track_crud.get_track_by_id(track_id=group.track_id, db=db)
+        group = group_crud.create_group(db, track, current_user.id)
+
+    group.users.append(current_user)
+    current_user.cur_group_id = group.id
+    db.commit()
+    return {"status": "ok"}
+
+
 # 초대
 @router.post("/invite", status_code=status.HTTP_204_NO_CONTENT)
-def invite_group(_user_id: int, _group_id: int, db: Session = Depends(get_db)):
+def invite_group(_receive_user_id: int, _group_id: int,
+                 current_user: User = Depends(user_router.get_current_user),
+                 db: Session = Depends(get_db)):
     try:
-        user = db.query(User).filter(User.id == _user_id).one()
+        recv_user = db.query(User).filter(User.id == _receive_user_id).one()
         group = db.query(Group).filter(Group.id == _group_id).one()
 
+        if group.status == GroupStatus.STARTED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="트랙이 진행중 입니다."
+            )
+
+        if group.status == GroupStatus.TERMINATED:
+            track = track_crud.get_track_by_id(track_id=group.track_id, db=db)
+            group = group_crud.create_group(db, track, current_user.id)
+
+        if group.track.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unauthorized"
+            )
+
         # 초대 생성
-        group_crud.create_invitation(db=db, user_id=user.id, group_id=group.id)
+        group_crud.create_invitation(db=db, user_id=recv_user.id, group_id=group.id)
 
         # 푸시 알림 보내기
-        if user.fcm_token:
+        if recv_user.fcm_token:
             message_title = "group Invitation"
-            message_body = f"Hello {user.username},\n\nYou have been invited to join the group '{group.name}'."
+            message_body = f"Hello {recv_user.username},\n\nYou have been invited to join the group '{group.name}'."
             message = messaging.Message(
                 notification=messaging.Notification(
                     title=message_title,
                     body=message_body,
                 ),
-                token=user.fcm_token,
+                token=recv_user.fcm_token,
             )
             response = messaging.send(message)
             print('Successfully sent message:', response)
 
-        return {"message": f"User {_user_id} has been invited to group {_group_id} and notified."}
+        return {"message": f"User {_receive_user_id} has been invited to group {_group_id} and notified."}
     except NoResultFound:
         db.rollback()
         raise HTTPException(status_code=404, detail="User or Group not found")
@@ -95,11 +184,25 @@ def invite_group(_user_id: int, _group_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/accept", status_code=status.HTTP_204_NO_CONTENT)
-def accept_invitation(user_id: int, group_id: int, db: Session = Depends(get_db)):
-    try:
-        group_crud.accept_invitation(db=db, user_id=user_id, group_id=group_id)
+@router.post("/delete/group/user")
+def delete_track(cur_user: User = Depends(user_router.get_current_user),
+                 db: Session = Depends(get_db)):
+    group_crud.delete_group_in_user(cur_user, db)
+    return {"message": "User has been deleted."}
 
+
+@router.post("/accept", status_code=status.HTTP_204_NO_CONTENT)
+def accept_invitation(group_id: int,
+                      respond: group_schema.Respond,
+                      current_user: User = Depends(user_router.get_current_user),
+                      db: Session = Depends(get_db)):
+    try:
+        if current_user.cur_group_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="already group in current user, please delete origin group first"
+            )
+        res = group_crud.accept_invitation(db=db, user_id=current_user.id, group_id=group_id, respond=respond)
         # 사용자와 트랙의 관계 설정
         # user = db.query(User).filter(User.id == user_id).one()
         # group = db.query(Group).filter(Group.id == group_id).one()
@@ -107,13 +210,24 @@ def accept_invitation(user_id: int, group_id: int, db: Session = Depends(get_db)
         # db.commit()
 
         # return JSONResponse(status_code=200, content={"message": f"User {user_id} has accepted the invitation to Group {group_id}."})
-        return {"message": f"User {user_id} has accepted the invitation to Track {group_id}."}
+        return {"message": f"User {current_user.name} has accepted the invitation to Track {group_id}."}
     except NoResultFound:
         db.rollback()
         raise HTTPException(status_code=404, detail="Invitation not found or already responded to")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/exit/group", status_code=status.HTTP_204_NO_CONTENT)
+def exit_group(current_user: User = Depends(user_router.get_current_user),
+               db: Session = Depends(get_db)):
+    """
+    현재 참여중인 그룹 탈주하기
+    """
+    group_crud.exit_group(db=db, user_id=current_user.id, group_id=current_user.cur_group_id)
+
+
 
 #########################################
 
@@ -212,20 +326,20 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
     if Group_willuse is None:
         db_groupnew = Group(
             track_id = track_id,
-            user_id = Track_willuse.user_id,
+            creator = Track_willuse.user_id,
             name = meal_hour_crud.create_file_name(user_id=current_user.id),
             start_day = None,
             finish_day = None,
-            state = 'ready'
+            status = GroupStatus.STARTED
         )
         db.add(db_groupnew)
         db.commit()
         db.refresh(db_groupnew)
         Group_willuse = db_groupnew
-    if Track_willuse.alone == True:
+    if Track_willuse.alone == True: # 개인 트랙일 경우
         group_crud.add_participation(db,user_id=current_user.id,group_id=Group_willuse.id,cheating_count=Track_willuse.cheating_count)
         group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id,duration=Track_willuse.duration)
-    if Track_willuse.alone == False:
+    if Track_willuse.alone == False: # 개인 트랙이 아닐 경우
         group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id, duration=Track_willuse.duration)
     nickname = user_crud.get_User_nickname(db,id=current_user.id)
     return {"trackname" : Track_willuse.name, "nickname" : nickname}

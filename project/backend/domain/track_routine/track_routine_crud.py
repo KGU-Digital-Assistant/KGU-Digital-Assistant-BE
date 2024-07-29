@@ -1,4 +1,6 @@
 from datetime import date
+from typing import List
+
 from domain.track_routine import track_routine_schema
 from domain.group import group_crud
 from models import TrackRoutine
@@ -26,9 +28,9 @@ def create(db: Session, track_id: int,
         time=routine_create.time,
         title=routine_create.title,
         calorie=routine_create.calorie,
-        food=routine_create.food,
         week=routine_create.week,
         repeat=routine_create.repeat,
+        date=routine_create.date,
     )
     db.add(db_routine)
     db.commit()
@@ -43,13 +45,19 @@ def delete_all(db, track_id):
         db.commit()
         db.refresh(routine)
 
+
+def get_routine_by_routine_id(db: Session, routine_id: int):
+    return db.query(TrackRoutine).filter(TrackRoutine.id==routine_id).first()
+
 #############################################
 
-def get_TrackRoutine_bytrack_id(db: Session, track_id:int):
-    trackroutines = db.query(TrackRoutine).filter(
+
+def get_track_routine_by_track_id(db: Session, track_id:int):
+    track_routines = db.query(TrackRoutine).filter(
         TrackRoutine.track_id==track_id
     ).all()
-    return trackroutines
+
+    return track_routines
 
 def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int, track_id: int, date: date) -> float:
     # 요일을 정수로 얻기 (월요일=0, 일요일=6)
@@ -82,6 +90,26 @@ def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int, track_id:
     return calorie
 def get_calorie_average(track_id: int, db: Session):
     routines = db.query(TrackRoutine).filter(TrackRoutine.track_id==track_id).all()
+    sum = 0
+    for routine in routines:
+        sum += routine.calorie
+        
+
+def update_routine(_routine_id: int, _routine: track_routine_schema.TrackRoutineCreate, db: Session):
+    db_routine = db.query(TrackRoutine).filter(TrackRoutine.id==_routine_id).first()
+    db_routine.time = _routine.time
+    db_routine.title = _routine.title
+    db_routine.calorie = _routine.calorie
+    db_routine.food = _routine.food
+    db_routine.week = _routine.week
+    db_routine.repeat = _routine.repeat
+    db.commit()
+    db.refresh(db_routine)
+
+
+def get_calorie_average(track_id: int, db: Session):
+    routines = db.query(TrackRoutine).filter(TrackRoutine.track_id==track_id).all()
+
     sum = 0
     for routine in routines:
         sum += routine.calorie
