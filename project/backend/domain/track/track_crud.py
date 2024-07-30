@@ -73,12 +73,6 @@ def get_Track_mine_title_all(db:Session, user_id: int):
     return [Track_list_get_schema(track_id=track.id, name=track.name, using= check_today_track_id(db,user_id=user_id)) for track in tracks]
 
 
-def get_Track_mine_title_all(db: Session, user_id: int):
-    tracks = db.query(Track.id, Track.name).filter(Track.user_id == user_id).all()
-    return [Track_list_get_schema(track_id=track.id, name=track.name, using=check_today_track_id(db, user_id=user_id))
-            for track in tracks]
-
-
 def get_Track_share_title_all(db: Session, user_id: int):
     invitations = db.query(Invitation.track_id).filter(Invitation.user_id == user_id).all()
     tracks = []
@@ -150,12 +144,12 @@ def get_track_title_all(db:Session, user_id: int):
         group, cheating_count, user_id2, flag, finish_date =group_info
         track_id = group.track_id
         if track_id not in seen_trackid: #track_id 처리여부확인
-            track = db.query(Track.id, Track.name, Track.start_date).filter(Track.id == track_id).first()
+            track = db.query(Track.id, Track.name, Track.start_date, Track.create_time).filter(Track.id == track_id).first()
             if track:
                 tracks.append(track)
                 seen_trackid.add(track_id) #처리된 track_id 집합
     # 현재 사용자의 track 추가
-    trackmine = db.query(Track.id, Track.name, Track.start_date).filter(Track.user_id == user_id).all()
+    trackmine = db.query(Track.id, Track.name, Track.start_date, Track.create_time).filter(Track.user_id == user_id).all()
 
     # trackmine의 데이터를 tracks에 추가, 중복 제거
     for track in trackmine:
@@ -163,7 +157,5 @@ def get_track_title_all(db:Session, user_id: int):
             tracks.append(track)
             seen_trackid.add(track.id)
 
-    #start_date 기준으로 정렬
-    tracks = sorted(tracks, key=lambda x: x.start_date, reverse=True)
-    return [Track_list_get_schema(track_id=track.id, name=track.name, using=check_today_track_id(db, user_id=user_id,track_id=track.id)) for track in tracks]
+    return [Track_list_get_schema(track_id=track.id, name=track.name, create_time=track.create_time, using=check_today_track_id(db, user_id=user_id,track_id=track.id)) for track in tracks]
 
