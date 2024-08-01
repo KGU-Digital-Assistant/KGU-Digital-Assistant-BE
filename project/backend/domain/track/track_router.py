@@ -182,7 +182,7 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
     username=user_crud.get_User_name(db,id=tracks.user_id)
     today=datetime.utcnow().date()+ timedelta(hours=9)
     #트랙을 공유한 횟수
-    count = tracks.count
+    count = tracks.share_count
     #그룹 정보여부
     group_one=group_crud.get_group_by_date_track_id_in_part(db,user_id=current_user.id,date=today,track_id=track_id)
     if group_one and group_one is not None:
@@ -193,9 +193,10 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
     else:
         group_startday=None
         group_finishday=None
+        real_finishday=None
     # calorie 계산
     calorie = track_routine_crud.get_calorie_average(track_id=track_id,db=db)
-    trackroutins=track_routine_crud.get_TrackRoutine_bytrack_id(db, track_id=track_id)
+    trackroutins=track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
     repeat=[]
     solo=[]
     for trackroutin in trackroutins:
