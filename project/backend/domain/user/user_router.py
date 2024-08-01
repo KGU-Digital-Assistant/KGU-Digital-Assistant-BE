@@ -92,10 +92,34 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
 # 회원가입
 @router.post("/create")
 def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
-    user = user_crud.get_existing_user(db, user_create=_user_create)
-    if user:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="이미 존재하는 사용자입니다.")
+    nickname_user = user_crud.get_user_by_nickname(db, user_create=_user_create)
+    if nickname_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "status": "닉네임 중복",
+                "error_code": 2,
+            }
+        )
+    email_user = user_crud.get_user_by_email(db, email=_user_create.email)
+    if not email_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "status": "이메일 중복",
+                "error_code": 3,
+            }
+        )
+    cellphone_user = user_crud.get_user_by_cellphone(db, _user_create.cellphone)
+    if not cellphone_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "status": "휴대폰 중복",
+                "error_code": 4,
+            }
+        )
+
     user = user_crud.create_user(db=db, user_create=_user_create)
     return {"user_id": user.id, "user_username": user.username}
 
@@ -112,6 +136,20 @@ def get_authorization_token(authorization: str = Header(...)) -> str:
             headers={"WWW-Authenticate": "Bearer"},
         )
     return param
+
+
+@router.post("/username/valid/{username}")
+def username_valid(username: str, db: Session = Depends(get_db)):
+    user = user_crud.get_user_by_username(db, username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "status": "아이디 중복",
+                "error_code": 1,
+            },
+        )
+    return {"status": "ok"}
 
 
 @router.post("/register/fcm-token")

@@ -212,3 +212,7 @@ def delete_mentor(id: int, db: Session):
 
 def get_user_by_id(db: Session, id: int):
     return db.query(User).filter(User.id == id).first()
+
+
+def get_user_by_nickname(db: Session, user_create: UserCreate):
+    return db.query(User).filter(User.username == user_create.username).first()
