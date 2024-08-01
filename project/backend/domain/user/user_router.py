@@ -84,18 +84,20 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "username": user.username
+        "username": user.username,
+        "user_id": user.id,
     }
 
 
 # 회원가입
-@router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/create")
 def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
     user = user_crud.get_existing_user(db, user_create=_user_create)
     if user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="이미 존재하는 사용자입니다.")
-    user_crud.create_user(db=db, user_create=_user_create)
+    user = user_crud.create_user(db=db, user_create=_user_create)
+    return {"user_id": user.id, "user_username": user.username}
 
 
 def get_authorization_token(authorization: str = Header(...)) -> str:
