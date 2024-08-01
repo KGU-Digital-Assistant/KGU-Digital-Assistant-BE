@@ -14,11 +14,11 @@ def get_TrackRoutine_by_track_id(db: Session, track_id:int):
     ).first()
     return trackroutines
 
-#def get_Suggestion_title_all(db: Session, user_id: int):
- #   suggestions = db.query(suggestion.id,suggestion.title).filter(
- #       suggestion.user_id == user_id
- #  ).all()
- #   return [Suggestion_title_schema(id=suggest.id, title=suggest.title) for suggest in suggestions]
+# def get_Suggestion_title_all(db: Session, user_id: int):
+#    suggestions = db.query(suggestion.id,suggestion.title).filter(
+#        suggestion.user_id == user_id
+#   ).all()
+#    return [Suggestion_title_schema(id=suggest.id, title=suggest.title) for suggest in suggestions]
 
 
 def create(db: Session, track_id: int,
@@ -114,4 +114,6 @@ def get_calorie_average(track_id: int, db: Session):
     for routine in routines:
         sum += routine.calorie
 
+    if sum == 0:
+        return 0
     return sum / len(routines)
