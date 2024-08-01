@@ -9,6 +9,7 @@ from database import get_db
 from domain.meal_day import meal_day_schema, meal_day_crud
 from domain.group import group_crud
 from domain.meal_hour import meal_hour_crud
+from domain.user import user_crud
 from domain.user.user_router import get_current_user
 from models import MealDay, MealHour, User,TrackRoutine, Participation
 from datetime import datetime,timedelta
@@ -17,6 +18,20 @@ from firebase_config import bucket
 router=APIRouter(
     prefix="/meal_day"
 )
+
+
+@router.get("/get/calender/{user_id}", response_model=List[meal_day_schema.MealDay_schema])
+def get_calendar(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
+    """
+    user_id와 month 정보를 넘기면 해당 월에 식단 정보 날짜 순으로 반환
+    """
+    user = user_crud.get_user(db, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    meals = meal_day_crud.get_meal_list(db, month, year, user_id)
+    return meals
+
 
 @router.get("/get/{user_id}/{daytime}", response_model=List[meal_day_schema.MealDay_schema])
 def get_MealDay_date(user_id: int, daytime: str ,db: Session = Depends(get_db)):

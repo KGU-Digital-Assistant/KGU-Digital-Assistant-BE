@@ -31,6 +31,7 @@ def create_user(db: Session, user_create: UserCreate):
                    )
     db.add(db_user)
     db.commit()
+    return db_user
 
 
 def update_user(db: Session, user_id: int, user_update: UserUpdate):
