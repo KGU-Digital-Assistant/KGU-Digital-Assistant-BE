@@ -19,18 +19,23 @@ router = APIRouter(
 )
 
 
-@router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
-def create_track(current_user: User = Depends(user_router.get_current_user),
+@router.post("/create", response_model=track_schema.TrackResponse)
+def create_track(_current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     """
     트랙 생성,
     기능명세서 p.19 1번 누를때
     """
-    track = track_crud.track_create(db, current_user)
+    track = track_crud.track_create(db, _current_user)
+    if track is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="트랙 생성 실패",
+        )
     return {"track_id": track.id}
 
 
-@router.patch("/create/next", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/create/next", response_model=track_schema.Track_schema)
 def update_track(_track_id: int,
                  _track: TrackCreate,
                  cheating_cnt: int,
