@@ -102,7 +102,7 @@ def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_
             }
         )
     email_user = user_crud.get_user_by_email(db, email=_user_create.email)
-    if not email_user:
+    if email_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
@@ -111,7 +111,7 @@ def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_
             }
         )
     cellphone_user = user_crud.get_user_by_cellphone(db, _user_create.cellphone)
-    if not cellphone_user:
+    if cellphone_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={

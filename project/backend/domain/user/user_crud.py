@@ -93,10 +93,10 @@ def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
     db.refresh(db_user)
 
 
-def get_user_by_cellphone(db: Session, _cellphone: str):
-    cellphone = _cellphone.replace('-', '')
-    phone_number = "010" + cellphone[-8:]
-    return db.query(User).filter(User.cellphone==phone_number).first()
+# def get_user_by_cellphone(db: Session, _cellphone: str):
+#     cellphone = _cellphone.replace('-', '')
+#     phone_number = "010" + cellphone[-8:]
+#     return db.query(User).filter(User.cellphone==phone_number).first()
 
 ###########################################
 
@@ -162,8 +162,7 @@ def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
 
 def get_user_by_cellphone(db: Session, _cellphone: str):
     cellphone = _cellphone.replace('-', '')
-    phone_number = "010" + cellphone[-8:]
-    return db.query(User).filter(User.cellphone==phone_number).first()
+    return db.query(User).filter(User.cellphone==cellphone).first()
 
 
 def save_fcm_token(db: Session, _user_name: str, _fcm_token: str):
@@ -215,4 +214,4 @@ def get_user_by_id(db: Session, id: int):
 
 
 def get_user_by_nickname(db: Session, user_create: UserCreate):
-    return db.query(User).filter(User.username == user_create.username).first()
+    return db.query(User).filter(User.nickname == user_create.nickname).first()
