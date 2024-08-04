@@ -206,7 +206,7 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
             week=trackroutin.week,
             time=trackroutin.time,
             date=trackroutin.date,
-            repeat=trackroutin.repeat
+            repeat=trackroutin.repeat,
         )
         if trackroutin.repeat:
             repeat.append(routin_data)
@@ -222,8 +222,11 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
         "group_finish_day": group_finishday,
         "real_finish_day": real_finishday,
         "duration": tracks.duration,
-        "caloire" : calorie,
-        "count" : count,
+        "caloire": calorie,
+        "count": count,
+        "coffee": tracks.coffee,
+        "alcohol": tracks.alcohol,
+        "water": tracks.water,
         "repeatroutin": repeat,
         "soloroutin": solo
     }

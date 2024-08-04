@@ -52,4 +52,4 @@ class TrackRoutin_id_title(BaseModel):
     week: Optional[str] =None
     time: Optional[str] =None
     date: Optional[str] =None
-    repeat: Optional[bool]= None
+    repeat: Optional[bool]=None
