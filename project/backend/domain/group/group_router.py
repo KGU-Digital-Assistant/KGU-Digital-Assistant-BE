@@ -219,13 +219,20 @@ def accept_invitation(group_id: int,
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/exit/group", status_code=status.HTTP_204_NO_CONTENT)
-def exit_group(current_user: User = Depends(user_router.get_current_user),
+@router.patch("/exit/group/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
+def exit_group(daytime: str, current_user: User = Depends(user_router.get_current_user),
                db: Session = Depends(get_db)):
     """
     현재 참여중인 그룹 탈주하기
+    입력 : daytiem : 2024-07-01(종료시점날짜) 해당일에 탈퇴므로 해당일부터 기존기간까지 목표칼로리등 변경
     """
-    group_crud.exit_group(db=db, user_id=current_user.id, group_id=current_user.cur_group_id)
+    try:
+        dates = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    if dates < date.today():
+        raise HTTPException(status_code=404, detail="No Input Old date")
+    group_crud.exit_group(db=db, user_id=current_user.id, date=dates,group_id=current_user.cur_group_id)
 
 
 
