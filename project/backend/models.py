@@ -7,9 +7,9 @@ from domain.group.group_schema import GroupStatus
 
 
 class FlagStatus(Enum):
-    ready = "ready"
-    started = "started"
-    terminated = "terminated"
+    ready = "READY"
+    started = "STARTED"
+    terminated = "TERMINATED"
 
 
 Participation = Table(
@@ -103,8 +103,8 @@ class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인
     track_id = Column(Integer, ForeignKey("Track.id"))
     name = Column(String)
     creator = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
-    start_day = Column(DateTime)
-    finish_day = Column(DateTime)
+    start_day = Column(Date)
+    finish_day = Column(Date)
     status = Column(SqlEnum(GroupStatus), nullable=False)
     users = relationship("User", secondary=Participation, back_populates="groups")
 

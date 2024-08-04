@@ -330,7 +330,7 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
             name = meal_hour_crud.create_file_name(user_id=current_user.id),
             start_day = None,
             finish_day = None,
-            status = GroupStatus.STARTED
+            status = GroupStatus.READY
         )
         db.add(db_groupnew)
         db.commit()

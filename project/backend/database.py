@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, MetaData, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+# from models import GroupStatus
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./myapi.db"
 
@@ -48,11 +49,11 @@ def create_triggers(dbapi_connection, connection_record):
     CREATE TRIGGER IF NOT EXISTS group_start
     AFTER UPDATE OF flag ON Participation
     FOR EACH ROW
-    WHEN (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag != 'started') = 0
-    AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'started') > 0
+    WHEN (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag != 'STARTED') = 0
+    AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'STARTED') > 0
     BEGIN
         UPDATE "Group"
-        SET state = 'started'
+        SET status = 'STARTED'
         WHERE id = NEW.group_id;
     END;
 
@@ -60,11 +61,11 @@ def create_triggers(dbapi_connection, connection_record):
     CREATE TRIGGER IF NOT EXISTS group_terminate
     AFTER UPDATE OF flag ON Participation
     FOR EACH ROW
-    WHEN (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag != 'terminated') = 0
-    AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'terminated') > 0
+    WHEN (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag != 'TERMINATED') = 0
+    AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'TERMINATED') > 0
     BEGIN
         UPDATE "Group"
-        SET state = 'terminated'
+        SET status = 'TERMINATED'
         WHERE id = NEW.group_id;
     END;
     """)

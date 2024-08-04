@@ -18,11 +18,12 @@ def get_existing_user(db: Session, user_create: UserCreate):
 
 
 def create_user(db: Session, user_create: UserCreate):
+    _cellphone = user_create.cellphone.replace("-", "")
     db_user = User(name=user_create.name,
                    username=user_create.username,
                    nickname=user_create.nickname,
                    email=user_create.email,
-                   cellphone=user_create.cellphone,
+                   cellphone=_cellphone,
                    password=pwd_context.hash(user_create.password1),
                    gender=user_create.gender,
                    rank=Rank.BRONZE.value,
