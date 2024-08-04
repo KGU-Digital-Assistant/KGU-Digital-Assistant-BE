@@ -44,7 +44,7 @@ def get_db():
 def create_triggers(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.executescript("""
-    -- 모든 flag가 'started'일 때 Group 테이블의 state를 'started'로 변경
+    -- 모든 flag가 'started'일 때 Group 테이블의 status를 'started'로 변경
     CREATE TRIGGER IF NOT EXISTS group_start
     AFTER UPDATE OF flag ON Participation
     FOR EACH ROW
@@ -52,11 +52,11 @@ def create_triggers(dbapi_connection, connection_record):
     AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'started') > 0
     BEGIN
         UPDATE "Group"
-        SET state = 'started'
+        SET status = 'started'
         WHERE id = NEW.group_id;
     END;
 
-    -- 모든 flag가 'terminated'일 때 Group 테이블의 state를 'terminated'로 변경
+    -- 모든 flag가 'terminated'일 때 Group 테이블의 status를 'terminated'로 변경
     CREATE TRIGGER IF NOT EXISTS group_terminate
     AFTER UPDATE OF flag ON Participation
     FOR EACH ROW
@@ -64,7 +64,7 @@ def create_triggers(dbapi_connection, connection_record):
     AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'terminated') > 0
     BEGIN
         UPDATE "Group"
-        SET state = 'terminated'
+        SET status = 'terminated'
         WHERE id = NEW.group_id;
     END;
     """)
