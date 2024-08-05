@@ -31,13 +31,13 @@ router = APIRouter(
 # fcm_api_key = config('FIREBASE_FCM_API_KEY')
 # push_service = FCMNotification(api_key=fcm_api_key)
 
-
-def update_group_status(db: Session):
+@router.get("/test")
+def update_group_status(db: Session = Depends(get_db)):
     """
     매일 끝난 그룹이 있는지 확인
     """
     group_crud.is_finished(db=db)
-
+    return {"status": "ok"}
 
 # 매일 한 번씩 실행.
 schedule.every().day.at("00:00").do(update_group_status)
@@ -320,11 +320,20 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
         해당 트랙들에 정해진 mealday값들 초기화 및 참여tbl flag, 종료일 변경 -> 새 group tbl 시작일 종료일 설정
          -> 새 참여 tbl flag, 종료일 설정 -> mealday에 new_track정보 입력
       트랙시작시점에 group의 state = started, participtaion의 flag는 finish_Date 도달시 false로 변경, 모두 false가 돼면 해당일에 group state = terminated 로 변경
+
+    - 진행중인 트랙이 있을 경우 409 에러 띄움.
+    - /exit/group/{daytime} 그룹 탈주하기 api 실행 후 하면 됨.
     """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
+
+    if current_user.cur_group_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 진행중인 트랙이 있음"
+        )
 
     Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
     if Track_willuse is None:

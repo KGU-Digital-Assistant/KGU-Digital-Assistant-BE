@@ -119,8 +119,8 @@ def is_finished(db: Session):
             user.cur_group_id = None
             db.commit()
 
-            _updated = update(Participation).where(Participation.user_id == user.id,
-                                                   Participation.group_id == group.id
+            _updated = update(Participation).where(Participation.c.user_id == user.id,
+                                                   Participation.c.group_id == group.id
                                                    ).values({"flag": FlagStatus.TERMINATED})
             db.commit()
 
