@@ -353,6 +353,16 @@ def get_oauth_login_url(state: str) -> str:
     return f"{KAKAO_OAUTH_URL}/authorize?{query_param}"
 
 
+@router.get("/create_day")
+def create_day(current_user: User = Depends(get_current_user),
+               db: Session = Depends(get_db)):
+    """
+    회원가입 한지 몇일 째 인지 반환
+    """
+    days = user_crud.get_create_day(db, current_user.id)
+    return {"days": days}
+
+
 @router.get("/kakao/login")
 async def login():
     state = secrets.token_urlsafe(32)
