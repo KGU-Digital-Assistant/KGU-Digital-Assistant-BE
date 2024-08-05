@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -216,3 +216,12 @@ def get_user_by_id(db: Session, id: int):
 
 def get_user_by_nickname(db: Session, user_create: UserCreate):
     return db.query(User).filter(User.nickname == user_create.nickname).first()
+
+
+def get_create_day(db: Session, user_id: int):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    create_date = user.create_date
+    delta = datetime.now() - create_date
+    days = delta.days
+    return days
