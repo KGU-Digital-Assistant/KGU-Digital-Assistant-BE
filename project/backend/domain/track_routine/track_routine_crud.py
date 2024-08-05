@@ -100,8 +100,8 @@ def update_routine(_routine_id: int, _routine: track_routine_schema.TrackRoutine
     db_routine.time = _routine.time
     db_routine.title = _routine.title
     db_routine.calorie = _routine.calorie
-    db_routine.food = _routine.food
     db_routine.week = _routine.week
+    db_routine.date = _routine.date
     db_routine.repeat = _routine.repeat
     db.commit()
     db.refresh(db_routine)

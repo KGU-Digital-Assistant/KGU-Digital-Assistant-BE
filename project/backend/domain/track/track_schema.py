@@ -90,6 +90,9 @@ class Track_get_Info(BaseModel):
     duration: Optional[int]= None
     calorie: Optional[float] = None
     count: Optional[int]=None
+    coffee: Optional[float] = None
+    alcohol: Optional[float] = None
+    water: Optional[float] = None
     repeatroutin: Optional[List[TrackRoutin_id_title]] = []
     soloroutin: Optional[List[TrackRoutin_id_title]] = []
 

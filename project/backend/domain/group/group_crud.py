@@ -119,9 +119,9 @@ def is_finished(db: Session):
             user.cur_group_id = None
             db.commit()
 
-            _updated = update(Participation).where(Participation.user_id == user.id,
-                                                   Participation.group_id == group.id
-                                                   ).values({"flag": FlagStatus.terminated})
+            _updated = update(Participation).where(Participation.c.user_id == user.id,
+                                                   Participation.c.group_id == group.id
+                                                   ).values({"flag": FlagStatus.TERMINATED})
             db.commit()
 
 
@@ -205,7 +205,7 @@ def add_participation(db: Session, user_id: int, group_id: int, cheating_count: 
         user_id=user_id,
         group_id=group_id,
         cheating_count=cheating_count,
-        flag=FlagStatus.ready,
+        flag=FlagStatus.READY,
         finish_date=None
     )
     db.execute(stmt)
@@ -228,7 +228,7 @@ def get_track_id_all_in_date(db: Session, start_date: date, finish_date: date, u
 def update_group_mealday_pushing_start(db: Session, user_id: int, track_id: int, date: date, group_id: int,
                                        duration: int):
     date_iter = date
-    new_group_finish_date = date + timedelta(days=duration)
+    new_group_finish_date = date + timedelta(days=duration-1)
 
     # MealDay 초기화
     while date_iter <= new_group_finish_date:
@@ -273,7 +273,7 @@ def update_group_mealday_pushing_start(db: Session, user_id: int, track_id: int,
             stmt = (
                 update(Participation)
                 .where(Participation.c.user_id == user_id, Participation.c.group_id == group.id)
-                .values(flag=FlagStatus.terminated, finish_date=date - timedelta(days=1))
+                .values(flag=FlagStatus.TERMINATED, finish_date=date - timedelta(days=1))
             )
             db.execute(stmt)
         db.commit()
@@ -290,7 +290,7 @@ def update_group_mealday_pushing_start(db: Session, user_id: int, track_id: int,
     stmt = (
         update(Participation)
         .where(Participation.c.user_id == user_id, Participation.c.group_id == group_id)
-        .values(flag=FlagStatus.started, finish_date=groupnew.finish_day)
+        .values(flag=FlagStatus.STARTED, finish_date=groupnew.finish_day)
     )
     db.execute(stmt)
     db.commit()
@@ -311,12 +311,29 @@ def update_group_mealday_pushing_start(db: Session, user_id: int, track_id: int,
     db.commit()
 
 
-def exit_group(db: Session, user_id: int, group_id: int):
+def exit_group(db: Session, user_id: int, date: date, group_id: int):
     user = db.query(User).filter(User.id == user_id).first()
+    past_group=get_group_by_id(db, group_id=user.cur_group_id)
+    if past_group is None:
+        raise HTTPException(status_code=404, detail="Not Using Group Now")
+    if past_group.start_day > date or past_group.finish_day < date:
+        raise HTTPException(status_code=404, detail="Using Group is not in date")
+    date_iter = date+timedelta(days=1) ## 2024-07-02에 종료누르면 2024-07-02까지는 트랙사용
+    finish_date = past_group.finish_day
+    # MealDay 초기화
+    while date_iter <= finish_date:
+        mealold = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date_iter)
+        if mealold:
+            mealold.track_id = None
+            mealold.goalcalorie = 0.0
+            db.add(mealold)
+        date_iter += timedelta(days=1)
     user.cur_group_id = None
-
+    db.add(user)
     _updated = (update(Participation).where(Participation.c.user_id == user_id,
                                             Participation.c.group_id == group_id)
-                .values(flag=FlagStatus.terminated, finish_date=date.today()))
-
+                .values(flag=FlagStatus.TERMINATED, finish_date=date.today()))
+    db.execute(_updated)
     db.commit()
+
+
