@@ -146,10 +146,14 @@ def get_User_byemail(db: Session, mail: str):
 
 def update_profile(db: Session, profile_user: UserProfile,
                    current_user: User):
+    _mentor = None
+    if profile_user.mentor_name:
+        _mentor = db.query(User).filter(User.username == profile_user.mentor_name).first()
+
     current_user.profile_picture = profile_user.profile_picture
-    current_user.username = profile_user.username
+    current_user.name = profile_user.name
     current_user.nickname = profile_user.nickname
-    current_user.mentor_id = profile_user.mentor.id
+    current_user.mentor_id = _mentor.username
     db.commit()
     db.refresh(current_user)
 
@@ -225,3 +229,7 @@ def get_create_day(db: Session, user_id: int):
     delta = datetime.now() - create_date
     days = delta.days
     return days
+
+
+def get_user_by_only_nickname(db: Session, nickname: str):
+    return db.query(User).filter(User.nickname == nickname).first()

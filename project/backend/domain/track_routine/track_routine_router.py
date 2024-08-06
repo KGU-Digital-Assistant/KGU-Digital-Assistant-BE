@@ -40,13 +40,19 @@ def create_TrackRoutine(track_id: int,
 
 
 @router.delete("/delete/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_TrackRoutine(track_id: int, db: Session = Depends(get_db)):
+def delete_TrackRoutine(track_id: int,
+                        current_user: User = Depends(get_current_user),
+                        db: Session = Depends(get_db)):
     """
     트랙 생성 중에 뒤로가기 눌렀을 때, 만든 루틴과 트랙 다 삭제
     """
     track = track_crud.get_track_by_id(db, track_id)
     if track is None:
         raise HTTPException(status_code=404, detail="Track does not exist")
+
+    if track.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="권한 없음")
 
     track_routine_crud.delete_all(db, track_id)
     track_crud.delete_track(db, track_id)

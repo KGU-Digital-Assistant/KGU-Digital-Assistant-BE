@@ -86,6 +86,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
         "token_type": "bearer",
         "username": user.username,
         "user_id": user.id,
+        "nickname": user.nickname
     }
 
 
@@ -642,9 +643,12 @@ def get_users_by_username(username: str, db: Session = Depends(get_db)):
 
 
 # user id로 1명 반환
-@router.get("/users/{user_id}", response_model=user_schema.UserSchema)
-def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
-    return user_crud.get_user(db=db, user_id=user_id)
+@router.get("/user/info}", response_model=user_schema.UserSchema)
+def get_user_by_id(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    현재 유저 정보 반환
+    """
+    return user_crud.get_user(db=db, user_id=current_user.id)
 
 
 # fcm 토큰 발급받아 저장하기 !!
@@ -884,7 +888,7 @@ async def get_user(db: Session = Depends(get_db),
     }
 
 
-@router.patch("/update/profile")
+@router.patch("/update/profile", response_model=user_schema.UserSchema)
 async def profile_update(_user_profile: user_schema.UserProfile,
                          db: Session = Depends(get_db),
                          current_user: User = Depends(get_current_user)):
@@ -892,4 +896,8 @@ async def profile_update(_user_profile: user_schema.UserProfile,
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if user_crud.get_user_by_only_nickname(db, _user_profile.nickname):
+        raise HTTPException(status_code=404, detail="Nickname is already taken")
+
     user_crud.update_profile(db=db, profile_user=_user_profile, current_user=current_user)
+    return current_user

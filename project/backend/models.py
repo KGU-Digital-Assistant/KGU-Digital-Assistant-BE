@@ -26,22 +26,20 @@ class User(Base):  # 회원
     __tablename__ = "User"
 
     id = Column(Integer, primary_key=True, nullable=False)
-    username = Column(String, nullable=False)  # 회원가입 ID로 쓸 예정 ( 컬럼 이름은 oauth2 form에 맞춰야해서 고정)
-    name = Column(String, nullable=False)  # 실명
-    cellphone = Column(String, unique=True, nullable=False)
+    username = Column(String(length=255), nullable=False)  # 회원가입 ID로 쓸 예정 ( 컬럼 이름은 oauth2 form에 맞춰야해서 고정)
+    name = Column(String(length=255), nullable=False)  # 실명
+    cellphone = Column(String(length=255), unique=True, nullable=False)
     gender = Column(Boolean)  # 1 남자, 0 여자
     birth = Column(DateTime)
     create_date = Column(DateTime, nullable=False)  # 가입일자
-    nickname = Column(String, unique=True, nullable=False)
-    rank = Column(String, nullable=False)
-    profile_picture = Column(String)
-    mentor_id = Column(Integer, ForeignKey("Mentor.id"))
-    email = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)
-    external_id = Column(String)  # 연동했을 때 id
-    auth_type = Column(String)  # 연동 방식 ex)kakao
-    fcm_token = Column(String)  # fcm 토큰 -> 앱 실행시(?), 회원가입(?)
-    cur_group_id = Column(Integer, ForeignKey("Group.id"))  # 현재 참여중인 그룹 추가
+    nickname = Column(String(length=255), unique=True, nullable=False)
+    rank = Column(String(length=255), nullable=False)
+    profile_picture = Column(String(length=255))
+    email = Column(String(length=255), unique=True, nullable=False)
+    password = Column(String(length=255), nullable=False)
+    external_id = Column(String(length=255))  # 연동했을 때 id
+    auth_type = Column(String(length=255))  # 연동 방식 ex)kakao
+    fcm_token = Column(String(length=255))  # fcm 토큰 -> 앱 실행시(?), 회원가입(?)
     groups = relationship('Group', secondary=Participation, back_populates='users')
 
 
@@ -50,7 +48,7 @@ class Mentor(Base):  ## 멘토
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("User.id"), unique=True)
-    gym = Column(String, nullable=True)
+    gym = Column(String(length=255), nullable=True)
     FA = Column(Boolean, nullable=True)
     company_id = Column(Integer, ForeignKey("Company.id"), nullable=True)
 
@@ -59,9 +57,9 @@ class Company(Base):  ## 회사(소속헬스장)
     __tablename__ = "Company"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
-    owner = Column(String, nullable=False)
-    cellphone = Column(String, nullable=False)
+    name = Column(String(length=255), nullable=False)
+    owner = Column(String(length=255), nullable=False)
+    cellphone = Column(String(length=255), nullable=False)
     certificate = Column(Boolean, nullable=True)
 
 
@@ -70,7 +68,7 @@ class Suggestion(Base):  ## 개발자에게 의견제출하는 테이블
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("User.id"))
-    title = Column(String, nullable=False)
+    title = Column(String(length=255), nullable=False)
     content = Column(Text, nullable=True)
     date = Column(DateTime, nullable=True)
 
@@ -80,7 +78,7 @@ class Track(Base):  # 식단트랙
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)
-    name = Column(String, default="새로운 식단 트랙")
+    name = Column(String(length=255), default="새로운 식단 트랙")
     water = Column(Float, default=0)
     coffee = Column(Float, default=0)
     alcohol = Column(Float, default=0)
@@ -101,7 +99,7 @@ class Group(Base):  ## 식단트랙을 사용하고 있는 user 있는지 확인
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     track_id = Column(Integer, ForeignKey("Track.id"))
-    name = Column(String)
+    name = Column(String(length=255))
     creator = Column(Integer, ForeignKey("User.id"), nullable=False)  ## track을 만든 회원의 id
     start_day = Column(Date)
     finish_day = Column(Date)
@@ -114,11 +112,11 @@ class TrackRoutine(Base):  ## 식단트랙 루틴
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     track_id = Column(Integer, ForeignKey("Track.id"))
-    title = Column(String, nullable=False)
+    title = Column(String(length=255), nullable=False)
     calorie = Column(Float, nullable=False)
-    week = Column(String, nullable=True)  ## 요일에 따른 1 2 3 4 5 6 7
-    time = Column(String, nullable=True)  ## 아침, 점심, 저녁 등
-    date = Column(String, nullable=True)  ## n번째 1,5  9, 14 등
+    week = Column(String(length=255), nullable=True)  ## 요일에 따른 1 2 3 4 5 6 7
+    time = Column(String(length=255), nullable=True)  ## 아침, 점심, 저녁 등
+    date = Column(String(length=255), nullable=True)  ## n번째 1,5  9, 14 등
     repeat = Column(Boolean, nullable=False)  #1은 반복, 0은 단독
     track = relationship("Track", back_populates="routines")
 
@@ -129,7 +127,7 @@ class Invitation(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)
     group_id = Column(Integer, ForeignKey("Group.id"), nullable=False)
-    status = Column(String, default="pending")
+    status = Column(String(length=255), default="pending")
 
 
 class MealDay(Base):
@@ -146,9 +144,9 @@ class MealDay(Base):
     cheating = Column(Integer, nullable=True)
     goalcalorie = Column(Float, nullable=True)  # 목표칼로리
     nowcalorie = Column(Float, nullable=True)  # 현섭취칼로리
-    gb_carb = Column(String, nullable=True)  # 탄수화물 구분
-    gb_protein = Column(String, nullable=True)  # 단백질 구분
-    gb_fat = Column(String, nullable=True)  # 지방 구분
+    gb_carb = Column(String(length=255), nullable=True)  # 탄수화물 구분
+    gb_protein = Column(String(length=255), nullable=True)  # 단백질 구분
+    gb_fat = Column(String(length=255), nullable=True)  # 지방 구분
     date = Column(Date, nullable=True)  # 등록일자
     track_id = Column(Integer, ForeignKey("Track.id"), nullable=True)
     __table_args__ = (
@@ -161,17 +159,17 @@ class MealHour(Base):  ##식단게시글 (시간대별)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)
-    name = Column(String, nullable=False)
-    picture = Column(String, nullable=False, index=True)
-    text = Column(String, nullable=True)
+    name = Column(String(length=255), nullable=False)
+    picture = Column(String(length=255), nullable=False, index=True)
+    text = Column(String(length=255), nullable=True)
     date = Column(DateTime, nullable=False)  ## 등록시점 분단뒤
     heart = Column(Boolean, nullable=True)
-    time = Column(String, nullable=True)  ## 등록시간대 아침, 점심, 저녁, 오후간식 등
+    time = Column(String(length=255), nullable=True)  ## 등록시간대 아침, 점심, 저녁, 오후간식 등
     carb = Column(Float, nullable=True)
     protein = Column(Float, nullable=True)
     fat = Column(Float, nullable=True)
     calorie = Column(Float, nullable=True)  ## 섭취칼로리
-    unit = Column(String, nullable=True)  ##저장단위
+    unit = Column(String(length=255), nullable=True)  ##저장단위
     size = Column(Float, nullable=True)  ##사이즈
     track_goal = Column(Boolean, nullable=True)  ##트랙지켯는지 안지켰는지 유무
     daymeal_id = Column(Integer, ForeignKey("Meal_Day.id"), nullable=False)
@@ -185,7 +183,7 @@ class Comment(Base):  ##댓글
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     meal_id = Column(Integer, ForeignKey("Meal_Hour.id", ondelete="CASCADE"), nullable=False)
-    text = Column(String, nullable=True)
+    text = Column(String(length=255), nullable=True)
     date = Column(DateTime, nullable=True)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)  ## 댓글 등록자
 
@@ -196,7 +194,7 @@ class MentorInvite(Base):
     id = Column(Integer, primary_key=True, index=True)
     mentee_id = Column(Integer, ForeignKey('User.id'))
     mentor_id = Column(Integer, ForeignKey('User.id'))
-    status = Column(String, default='pending')  # 'pending', 'accepted', 'rejected'
+    status = Column(String(length=255), default='pending')  # 'pending', 'accepted', 'rejected'
 
     mentee = relationship("User", foreign_keys=[mentee_id])
     mentor = relationship("User", foreign_keys=[mentor_id])

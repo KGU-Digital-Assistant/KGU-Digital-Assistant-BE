@@ -227,6 +227,7 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
         "coffee": tracks.coffee,
         "alcohol": tracks.alcohol,
         "water": tracks.water,
+        "cheating_count": tracks.cheating_count,
         "repeatroutin": repeat,
         "soloroutin": solo
     }
