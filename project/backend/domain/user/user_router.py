@@ -888,7 +888,7 @@ async def get_user(db: Session = Depends(get_db),
     }
 
 
-@router.patch("/update/profile")
+@router.patch("/update/profile", response_model=user_schema.UserSchema)
 async def profile_update(_user_profile: user_schema.UserProfile,
                          db: Session = Depends(get_db),
                          current_user: User = Depends(get_current_user)):
@@ -896,4 +896,8 @@ async def profile_update(_user_profile: user_schema.UserProfile,
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if user_crud.get_user_by_only_nickname(db, _user_profile.nickname):
+        raise HTTPException(status_code=404, detail="Nickname is already taken")
+
     user_crud.update_profile(db=db, profile_user=_user_profile, current_user=current_user)
+    return current_user

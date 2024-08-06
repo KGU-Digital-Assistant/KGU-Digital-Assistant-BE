@@ -36,9 +36,18 @@ async def mentor_create(_mentor_create: mentor_schema.MentorCreate,
     return {"status": "ok"}
 
 @router.post("/add/user", status_code=201)
-def connect_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
+def invite_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
                            _mentor: User = Depends(user_router.get_current_user),
                            db: Session = Depends(get_db)):
+    """
+    트레이너가 회원을 담당하고자 요청보냄
+    """
+    if not mentor_crud.get_mentor(_mentor.id, db):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not Mentor",
+        )
+
     mentee = user_crud.get_user_by_username(db, _mentee.username)
     if not mentee:
         raise HTTPException(
@@ -51,8 +60,64 @@ def connect_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
             detail="You are already connected",
         )
 
-    matching_mentor(mentee=mentee, _mentor_id=_mentor.id, db=db)
+    invitation = mentor_crud.mentor_invite(mentee_id=_mentee.id, mentor_id=_mentor.id, db=db)
+
+    fcm_token = mentee.fcm_token
+    response = user_crud.send_push_invite(
+        fcm_token=fcm_token,
+        title="담당 트레이너 요청",
+        body=f"{_mentor.username} 트레이너님이 회원님을 담당하고자 요청을 보냈습니다."
+    )
+    return {"response" : response, "invitation_id": invitation.id}
+
+
+@router.post("/invitation/{invite_id}/respond", status_code=201)
+def respond_mentee(invite_id: int,
+                   response: str,
+                   _mentee: User = Depends(user_router.get_current_user),
+                   db: Session = Depends(get_db)):
+    """
+    회원이 수락 또는 거절 응답 api
+    : response에 수락(accepted)인지 거절(rejected)인지 줘야함
+    """
+    invitation = mentor_crud.get_invite_by_id(invite_id, db)
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found",
+        )
+
+    if response.lower() not in ["accepted", "rejected"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid response",
+        )
+
+    if _mentee.mentor_id:
+        user_crud.invitation_respond(invitation_id=invitation.id,
+                                     response="rejected",
+                                     db=db,
+                                     _mentee_id=_mentee.id)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are already connected",
+        )
+
+    user_crud.invitation_respond(invitation_id=invitation.id,
+                                 response=response,
+                                 db=db,
+                                 _mentee_id=_mentee.id)
     return {"status": "ok"}
+
+@router.post("/manage/delete", status_code=201)
+def delete_mentor(_current_user: User = Depends(user_router.get_current_user),
+                  db: Session = Depends(get_db)):
+    if user_crud.delete_mentor(_current_user.id, db):
+        return {"status": "ok"}
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User Not Found",
+    )
 
 @router.patch("/gym/update", status_code=201)
 def gym_update(_mentor_gym: mentor_schema.MentorGym,
