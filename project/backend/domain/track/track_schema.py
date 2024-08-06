@@ -93,6 +93,7 @@ class Track_get_Info(BaseModel):
     coffee: Optional[float] = None
     alcohol: Optional[float] = None
     water: Optional[float] = None
+    cheating_count: Optional[int] = None
     repeatroutin: Optional[List[TrackRoutin_id_title]] = []
     soloroutin: Optional[List[TrackRoutin_id_title]] = []
 
