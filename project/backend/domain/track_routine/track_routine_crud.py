@@ -43,7 +43,7 @@ def delete_all(db, track_id):
     for routine in routines:
         db.delete(routine)
         db.commit()
-        db.refresh(routine)
+        # db.refresh(routine)
 
 
 def get_routine_by_routine_id(db: Session, routine_id: int):
