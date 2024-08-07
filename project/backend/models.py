@@ -40,6 +40,8 @@ class User(Base):  # 회원
     external_id = Column(String(length=255))  # 연동했을 때 id
     auth_type = Column(String(length=255))  # 연동 방식 ex)kakao
     fcm_token = Column(String(length=255))  # fcm 토큰 -> 앱 실행시(?), 회원가입(?)
+    cur_group_id = Column(Integer, ForeignKey("Group.id")) # 현재 참여중인 그룹 추가
+    mentor_id = Column(Integer, ForeignKey("Mentor.id"))
     groups = relationship('Group', secondary=Participation, back_populates='users')
 
 

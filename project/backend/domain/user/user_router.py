@@ -90,6 +90,11 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
     }
 
 
+@router.post("/create/test")
+def test(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
+    user = user_crud.create_user(db=db, user_create=_user_create)
+    return {"user_id": user.id, "user_username": user.username}
+
 # 회원가입
 @router.post("/create")
 def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
@@ -643,12 +648,31 @@ def get_users_by_username(username: str, db: Session = Depends(get_db)):
 
 
 # user id로 1명 반환
-@router.get("/user/info}", response_model=user_schema.UserSchema)
+@router.get("/user/info", response_model=user_schema.UserSchema)
 def get_user_by_id(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     현재 유저 정보 반환
     """
     return user_crud.get_user(db=db, user_id=current_user.id)
+
+
+@router.get("/user/setting/info", response_model=user_schema.UserSchema)
+def get_user_by_id(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    현재 유저 정보 반환
+    """
+    user = user_crud.get_User(db, id=current_user.id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    gym = ''
+    mentor_name = ''
+    if user.mentor_id:
+        mentor = mentor_crud.get_mentor(db, user.mentor_id)
+        gym = mentor.gym
+        mentor_info = user_crud.get_User(db, id=mentor.user_id)
+        mentor_name = mentor_info.name
+
+    return {"username": user.username, "name": user.name, "gym": gym, "mentor_name": mentor_name}
 
 
 # fcm 토큰 발급받아 저장하기 !!

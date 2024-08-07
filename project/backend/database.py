@@ -1,13 +1,20 @@
 from sqlalchemy import create_engine, MetaData, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from starlette.config import Config
 # from models import GroupStatus
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./myapi.db"
+config = Config('.env')
+SQLALCHEMY_DATABASE_URL = config('SQLALCHEMY_DATABASE_URL')
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+
+if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
+else:
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
 
 # autocommit=False로 설정하면 데이터를 변경했을때 commit 이라는 사인을 주어야만 실제 저장이 된다.
 # 데이터를 잘못 저장했을 경우 rollback 사인으로 되돌리는 것이 가능
