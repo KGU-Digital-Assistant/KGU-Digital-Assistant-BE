@@ -84,6 +84,7 @@ class Token(BaseModel):
     user_id: int
     nickname: str
 
+
 class UserSchema(BaseModel):
     id: int
     email: str
@@ -93,8 +94,6 @@ class UserSchema(BaseModel):
     cellphone: str
     gender: bool
     birth: datetime.date
-    cur_group_id: Optional[str]
-    mentor_id: Optional[int]
 
     class Config:
         orm_mode = True
