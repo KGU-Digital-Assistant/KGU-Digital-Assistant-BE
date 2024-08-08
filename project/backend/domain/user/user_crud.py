@@ -150,10 +150,10 @@ def update_profile(db: Session, profile_user: UserProfile,
     if profile_user.mentor_name:
         _mentor = db.query(User).filter(User.username == profile_user.mentor_name).first()
 
-    current_user.profile_picture = profile_user.profile_picture
     current_user.name = profile_user.name
     current_user.nickname = profile_user.nickname
-    current_user.mentor_id = _mentor.username
+    if _mentor is not None:
+        current_user.mentor_id = _mentor.user_id
     db.commit()
     db.refresh(current_user)
 
