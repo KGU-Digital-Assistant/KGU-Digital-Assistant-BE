@@ -22,6 +22,20 @@ router = APIRouter(
 def get_current_mentor(_user_id: int, db: Session = Depends(get_db)):
     return user_router.get_current_user()
 
+@router.get("/get")
+async def get_mentor(mentor_id: int, db: Session = Depends(get_db)):
+    """
+    mentor 정보 출력
+    """
+    mentor = mentor_crud.get_mentor_by_id(db,mentor_id)
+    if not mentor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mentor not found",
+        )
+    return mentor
+
+
 # 일반 회원 -> 트레이너가 될 때
 @router.post("/create", status_code=201)
 async def mentor_create(_mentor_create: mentor_schema.MentorCreate,

@@ -99,3 +99,7 @@ def get_mentee_list_by_mentor_id(db: Session, mentor_id: int):
         raise HTTPException(status_code=404, detail="mentor not found")
 
     return users
+
+
+def get_mentor_by_id(db: Session, mentor_id: int):
+    return db.query(Mentor).filter(Mentor.id == mentor_id).first()
