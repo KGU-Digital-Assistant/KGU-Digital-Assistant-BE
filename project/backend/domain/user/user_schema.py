@@ -94,6 +94,7 @@ class UserSchema(BaseModel):
     cellphone: str
     gender: bool
     birth: datetime.date
+    mentor_id: Optional[int]
 
     class Config:
         orm_mode = True
@@ -114,7 +115,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 class UserProfile(BaseModel):
-    profile_picture: str
+    profile_picture: Optional[str]
     name: str
     nickname: str
     mentor_name: Optional[str] = None

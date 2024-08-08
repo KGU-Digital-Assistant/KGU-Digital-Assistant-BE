@@ -656,7 +656,7 @@ def get_user_by_id(current_user: User = Depends(get_current_user), db: Session =
     return user_crud.get_user(db=db, user_id=current_user.id)
 
 
-@router.get("/user/setting/info", response_model=user_schema.UserSchema)
+@router.get("/user/setting/info")
 def get_user_by_id(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     현재 유저 정보 반환
