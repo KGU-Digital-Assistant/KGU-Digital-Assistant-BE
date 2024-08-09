@@ -1,9 +1,14 @@
 from datetime import datetime, date
+
+from fastapi import HTTPException
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from typing import Optional
+
+from starlette import status
+
 from domain.user.user_schema import UserCreate, UserUpdate, Rank, UserProfile
-from models import User, Invitation
+from models import User, Invitation, Mentor
 from firebase_admin import messaging
 
 
@@ -149,11 +154,16 @@ def update_profile(db: Session, profile_user: UserProfile,
     _mentor = None
     if profile_user.mentor_name:
         _mentor = db.query(User).filter(User.username == profile_user.mentor_name).first()
-
+        mentor = db.query(Mentor).filter(Mentor.user_id == _mentor.id).first()
+        if mentor is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="추가 하려는 해당 사용자는 멘토가 아닙니다."
+            )
     current_user.name = profile_user.name
     current_user.nickname = profile_user.nickname
     if _mentor is not None:
-        current_user.mentor_id = _mentor.user_id
+        current_user.mentor_id = mentor.id
     db.commit()
     db.refresh(current_user)
 
