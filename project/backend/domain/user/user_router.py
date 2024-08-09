@@ -899,7 +899,7 @@ async def get_user(db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="User not found")
 
     mentor_name = ""
-    mentor = mentor_crud.get_mentor(db, user_id=current_user.mentor_id)
+    mentor = mentor_crud.get_mentor_by_id(db, current_user.mentor_id)
     if mentor:
         _mentor = user_crud.get_user_by_id(db, id=mentor.user_id)
         mentor_name = _mentor.name
