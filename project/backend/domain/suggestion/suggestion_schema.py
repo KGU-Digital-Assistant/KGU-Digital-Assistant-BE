@@ -2,18 +2,21 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
-class Suggestion_schema(BaseModel):
+
+class SuggestionSchema(BaseModel):
     id: int
     user_id: int
     title: str
     content: Optional[str] = None
     date: datetime
 
-class Suggestion_content_schema(BaseModel):
+
+class SuggestionContentSchema(BaseModel):
     title: str
     content: Optional[str] = None
 
-class Suggestion_title_schema(BaseModel):
+
+class SuggestionTitleSchema(BaseModel):
     id: int
     title: str
 
