@@ -77,14 +77,14 @@ def get_user_by_username(db: Session, _username: str):
 def get_users_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).all()
 
-def update_profile(db: Session, profile_user: UserProfile,
-                   current_user: User):
-    current_user.profile_picture = profile_user.profile_picture
-    current_user.username = profile_user.username
-    current_user.nickname = profile_user.nickname
-    current_user.mentor_id = profile_user.mentor.id
-    db.commit()
-    db.refresh(current_user)
+# def update_profile(db: Session, profile_user: UserProfile,
+#                    current_user: User):
+#     current_user.profile_picture = profile_user.profile_picture
+#     current_user.username = profile_user.username
+#     current_user.nickname = profile_user.nickname
+#     current_user.mentor_id = profile_user.mentor.id
+#     db.commit()
+#     db.refresh(current_user)
 
 
 def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
