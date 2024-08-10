@@ -20,7 +20,7 @@ router=APIRouter(
     prefix="/meal_hour"
 )
 
-@router.get("/get/{time}/mine", response_model=meal_hour_schema.MealHour_schema)
+@router.get("/get/meal_hour/mine/{time}", response_model=meal_hour_schema.MealHour_schema)
 def get_MealHour_date(time:str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 전체 Column 조회 : 9page 6-1번, 9page 6-2번 (기록날짜, 게시글),
@@ -31,7 +31,7 @@ def get_MealHour_date(time:str, current_user: User = Depends(get_current_user), 
         raise HTTPException(status_code=404, detail="Meal not found")
     return User_Meal  ## 전체 열 출력
 
-@router.get("/get/{user_id}/{time}/formentor", response_model=meal_hour_schema.MealHour_schema)
+@router.get("/get/meal_hour/formentor/{user_id}/{time}", response_model=meal_hour_schema.MealHour_schema)
 def get_MealHour_date(user_id: int, time:str, db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 전체 Column 조회 : 9page 6-1번, 9page 6-2번 (기록날짜, 게시글),
@@ -42,7 +42,7 @@ def get_MealHour_date(user_id: int, time:str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Meal not found")
     return User_Meal  ## 전체 열 출력
 
-@router.get("/get_mealhour_picture/{time}/mine")
+@router.get("/get_mealhour_picture/formentor/{id}/{time}")
 async def get_mealhour_picture(id: int, time: str, db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 사진 조회 : 12page 2-2번
@@ -66,7 +66,7 @@ async def get_mealhour_picture(id: int, time: str, db: Session = Depends(get_db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/get_mealhour_picture/{id}/{time}/formentor")
+@router.get("/get_mealhour_picture/mine/{time}")
 async def get_mealhour_picture(time: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 사진 조회 : 17page 4번
@@ -140,7 +140,7 @@ async def remove_meal(time:str,current_user: User = Depends(get_current_user), d
      if blob.exists():
          blob.delete()
 
-     db.delete(meal)
+     db.delete(밥)
      db.commit()
      return {"detail": "Meal posting deleted successfully"}
 
@@ -264,7 +264,7 @@ async def remove_temp_meal(file_path: str = Form(...)):
 
     return {"detail": "Temporary file removed"}
 
-@router.patch("/update/{daytime}/gram", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/update/gram/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
 def update_meal_gram(time: str, size: float = Form(...), current_user: User = Depends(get_current_user),db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 음식 size 수정 : 12page 3-2번
@@ -337,7 +337,7 @@ def minus_daily_post(db: Session, user_id: int,new_food: MealHour):
     db.refresh(daily_post)
     return daily_post
 
-@router.get("/get/{daytime}/daymeal", response_model=List[meal_hour_schema.MealHour_daymeal_get_schema])
+@router.get("/get/daymeal/{daytime}", response_model=List[meal_hour_schema.MealHour_daymeal_get_schema])
 def get_MealHour_date_all(daytime:str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     해당일 등록 식단Time, name 출력 : 13page 2-1번
@@ -351,7 +351,7 @@ def get_MealHour_date_all(daytime:str, current_user: User = Depends(get_current_
     return User_Meal  ## TIME, NAME 열출력(전체 행) ##time에 날짜만입력
 
 
-@router.patch("update/{user_id}/{time}/heart", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("update/heart/{user_id}/{time}", status_code=status.HTTP_204_NO_CONTENT)
 def update_MealHour_heart(user_id: int, time: str, db:Session=Depends(get_db)):
     """
     회원들  : 16page 5-3번
@@ -380,14 +380,14 @@ def update_MealHour_heart(user_id: int, time: str, db:Session=Depends(get_db)):
 
     return User_Meal
 
-@router.get("/get/{user_id}/{daytime}/daymeal_time", response_model=List[meal_hour_schema.MealHour_daymeal_time_get_schema])
+@router.get("/get/daymeal_time/{user_id}/{daytime}", response_model=List[meal_hour_schema.MealHour_daymeal_time_get_schema])
 def get_MealHour_date_all(user_id: int, daytime:str, db: Session = Depends(get_db)):
     User_Meal = meal_hour_crud.get_User_Meal_all_time(db,user_id=user_id,time=daytime)
     if User_Meal is None:
         raise HTTPException(status_code=404, detail="Comments not found")
     return User_Meal  ## TIME ##time에 날짜만입력
 
-@router.get("/get/{time}/track/mine", response_model=meal_hour_schema.MealHour_track_get_schema)
+@router.get("/get/track/mine/{time}", response_model=meal_hour_schema.MealHour_track_get_schema)
 def get_MealHour_track_goal_user(time:str, current_user: User = Depends(get_current_user), db:Session =Depends(get_db)):
     """
     식단시간별(MealHour) track 지킴 유무 조회 : 12page 6-1번
@@ -399,7 +399,7 @@ def get_MealHour_track_goal_user(time:str, current_user: User = Depends(get_curr
         raise HTTPException(status_code=404, detail="MealHour not found")
     return {"track_goal" : mealhour.track_goal}
 
-@router.get("/get/{user_id}/{time}/track/formentor", response_model=meal_hour_schema.MealHour_track_get_schema)
+@router.get("/get/track/formentor/{user_id}/{time}", response_model=meal_hour_schema.MealHour_track_get_schema)
 def get_MealHour_track_goal_mentor(user_id: int, time:str, db:Session =Depends(get_db)):
     """
     식단시간별(MealHour) track 지킴 유무 조회 : 12page 6-1번
@@ -411,7 +411,7 @@ def get_MealHour_track_goal_mentor(user_id: int, time:str, db:Session =Depends(g
         raise HTTPException(status_code=404, detail="MealHour not found")
     return {"track_goal" : mealhour.track_goal}
 
-@router.patch("/update/{time}/track/mine", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/update/track/mine/{time}", status_code=status.HTTP_204_NO_CONTENT)
 def update_Mealhour_track_goal_user(time:str, current_user: User = Depends(get_current_user), db:Session=Depends(get_db)):
     """
     식단시간별(MealHour) track 지킴 유무 없뎃 : 12page 6-2번
@@ -428,7 +428,7 @@ def update_Mealhour_track_goal_user(time:str, current_user: User = Depends(get_c
     db.refresh(mealhour)
     return {"detail" : "track_goal updated successfully"}
 
-@router.patch("/update/{user_id}/{time}/track/formentor", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/update/track/formentor/{user_id}/{time}", status_code=status.HTTP_204_NO_CONTENT)
 def update_Mealhour_track_goal_mentor(user_id:int, time:str, db:Session=Depends(get_db)):
     """
     식단시간별(MealHour) track 지킴 유무 없뎃 : 17page 8번
