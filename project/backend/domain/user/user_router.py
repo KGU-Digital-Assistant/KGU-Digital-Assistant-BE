@@ -661,18 +661,19 @@ def get_user_by_id(current_user: User = Depends(get_current_user), db: Session =
     """
     현재 유저 정보 반환
     """
-    user = user_crud.get_User(db, id=current_user.id)
+    user = user_crud.get_user_by_id(db, id=current_user.id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     gym = ''
     mentor_name = ''
     if user.mentor_id:
-        mentor = mentor_crud.get_mentor(db, user.mentor_id)
+        mentor = mentor_crud.get_mentor_by_id(db, user.mentor_id)
         gym = mentor.gym
-        mentor_info = user_crud.get_User(db, id=mentor.user_id)
+        mentor_info = user_crud.get_user_by_id(db, id=mentor.user_id)
         mentor_name = mentor_info.name
 
-    return {"username": user.username, "name": user.name, "gym": gym, "mentor_name": mentor_name}
+    return {"username": user.username, "name": user.name,
+            "gym": gym, "mentor_name": mentor_name}
 
 
 # fcm 토큰 발급받아 저장하기 !!
@@ -916,7 +917,7 @@ async def get_user(db: Session = Depends(get_db),
 async def profile_update(_user_profile: user_schema.UserProfile,
                          db: Session = Depends(get_db),
                          current_user: User = Depends(get_current_user)):
-    user = user_crud.get_User(db, id=current_user.id)
+    user = user_crud.get_user_by_id(db, id=current_user.id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -925,5 +926,7 @@ async def profile_update(_user_profile: user_schema.UserProfile,
         if user_crud.get_user_by_only_nickname(db, _user_profile.nickname):
             raise HTTPException(status_code=404, detail="Nickname is already taken")
 
+    if user.username == _user_profile.mentor_username:
+        raise HTTPException(status_code=404, detail="멘토로 본인을 추가할 순 없습니다.")
     user_crud.update_profile(db=db, profile_user=_user_profile, current_user=current_user)
     return current_user

@@ -117,7 +117,7 @@ class RefreshTokenRequest(BaseModel):
 class UserProfile(BaseModel):
     name: str
     nickname: str
-    mentor_name: Optional[str] = None
+    mentor_username: Optional[str] = None
 
 #########################################
 

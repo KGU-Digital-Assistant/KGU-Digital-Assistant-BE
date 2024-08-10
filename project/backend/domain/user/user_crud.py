@@ -152,18 +152,28 @@ def get_User_byemail(db: Session, mail: str):
 def update_profile(db: Session, profile_user: UserProfile,
                    current_user: User):
     _mentor = None
-    if profile_user.mentor_name:
-        _mentor = db.query(User).filter(User.username == profile_user.mentor_name).first()
-        mentor = db.query(Mentor).filter(Mentor.user_id == _mentor.id).first()
-        if mentor is None:
+    if profile_user.mentor_username:
+        _mentor = db.query(User).filter(User.username == profile_user.mentor_username).first()
+
+        if _mentor:
+            mentor = db.query(Mentor).filter(Mentor.user_id == _mentor.id).first()
+            if mentor is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="추가 하려는 해당 사용자는 멘토가 아닙니다."
+                )
+        else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="추가 하려는 해당 사용자는 멘토가 아닙니다."
+                detail="username이 잘못 됨."
             )
+
     current_user.name = profile_user.name
     current_user.nickname = profile_user.nickname
     if _mentor is not None:
         current_user.mentor_id = mentor.id
+    else:
+        current_user.mentor_id = None
     db.commit()
     db.refresh(current_user)
 
