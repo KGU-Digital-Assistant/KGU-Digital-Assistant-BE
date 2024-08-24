@@ -1,0 +1,1 @@
+LOAD DATA LOCAL INFILE '/var/lib/mysql/nutdata.csv' INTO TABLE nutritions FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n';
