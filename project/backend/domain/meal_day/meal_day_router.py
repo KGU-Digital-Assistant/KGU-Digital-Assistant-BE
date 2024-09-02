@@ -1,6 +1,6 @@
 import datetime
 
-from fastapi import APIRouter,  Depends, HTTPException
+from fastapi import APIRouter,  Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_,and_, update
 from typing import List
@@ -14,6 +14,7 @@ from domain.user.user_router import get_current_user
 from models import MealDay, MealHour, User,TrackRoutine, Participation
 from datetime import datetime,timedelta
 from firebase_config import bucket
+from calendar import monthrange
 
 router=APIRouter(
     prefix="/meal_day"
@@ -228,6 +229,48 @@ def post_MealDay_date(daytime: str, current_user: User = Depends(get_current_use
         db.commit()
         db.refresh(new_meal)
 
+@router.post("/post/meal_day/{year}/{month}", status_code=status.HTTP_204_NO_CONTENT)
+def post_MealDay_month(year: int, month: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    특정 월 동안의 식단일일(MealDay) db생성 : 앱실행시(해당월 입력) 해당기간에 생성
+    - 입력예시 : year = 2024, month = 6
+    """
+    try:
+        # 주어진 월의 첫날과 마지막 날을 구합니다.
+        first_day = datetime(year, month, 1).date()
+        last_day = datetime(year, month, monthrange(year, month)[1]).date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    # 해당 월의 모든 날짜에 대해 반복합니다.
+    date_iter = first_day
+    while date_iter <= last_day:
+        meal = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date_iter)
+        if not meal:
+            new_meal = MealDay(
+                user_id=current_user.id,
+                water=0.0,
+                coffee=0.0,
+                alcohol=0.0,
+                carb=0.0,
+                protein=0.0,
+                fat=0.0,
+                cheating=0,
+                goalcalorie=0.0,
+                nowcalorie=0.0,
+                burncalorie=0.0,
+                gb_carb=None,
+                gb_protein=None,
+                gb_fat=None,
+                date=date_iter,
+                track_id=None  ## 트랙 user사용중일때 안할때 이거 변경해야할거같은데
+            )
+            db.add(new_meal)
+        # 다음 날짜로 이동
+        date_iter += timedelta(days=1)
+
+    db.commit()
+
 @router.get("/get/calorie/{daytime}", response_model=meal_day_schema.MealDay_calorie_get_schema)
 def get_MealDay_date_calorie(daytime: str ,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
@@ -378,12 +421,14 @@ def get_MealDay_dday_goal_real(daytime: str, current_user: User = Depends(get_cu
     return {"dday" : dday, "goal" : goal_time, "real" : meal_info}
 
 
-@router.get("/get/calorie_today", response_model=meal_day_schema.MealDay_today_goal_calorie_schema)
+@router.get("/get/calorie_today", response_model=meal_day_schema.MealDay_today_calorie_schema)
 def get_MealDay_calorie_today(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    금일 칼로리, 목표칼로리 조회
+    금일 칼로리, 목표칼로리 조회, 섭취칼로리, 소모칼로리, 몸무게 조회
      - 입력예시 : 없음
-     - 출력 : todaycalorie(nowcalorie - burncalorie), MealDay.goalcaloire
+     - 출력 : todaycalorie(nowcalorie - burncalorie), MealDay.goalcaloire,
+             MealDay.nowcalorie, MealDay.burncalorie. User.weight
+
     """
     date = datetime.utcnow() + timedelta(hours=9)
     mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=current_user.id,date=date)
@@ -391,4 +436,93 @@ def get_MealDay_calorie_today(current_user: User = Depends(get_current_user), db
         raise HTTPException(status_code=404, detail="Meal posting not found")
     todaycalorie = mealtoday.nowcalorie - mealtoday.burncalorie
     goalcalorie = mealtoday.goalcalorie
-    return {"todaycalorie" : todaycalorie, "goalcalorie" : goalcalorie}
+    nowcalorie =mealtoday.nowcalorie
+    burncalorie=mealtoday.burncalorie
+    user = user_crud.get_user(db,user_id=current_user.id)
+    userweight=user.weight
+    return {"todaycalorie" : todaycalorie, "goalcalorie" : goalcalorie, "nowcalorie": nowcalorie, "burncalorie": burncalorie,"weight": userweight}
+
+@router.get("/get/mealhour_today/{daytime}", response_model=meal_day_schema.MealDay_today_mealhour_list_schema)
+def get_today_Mealhour(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    금일 식단게시사진(MealHour), 등록시간 전체 조회
+     - 입력예시 : daytime = 2024-06-01
+     - 출력 : 당일 식단게시글[picture_url, Mealhour.date]
+    """
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    meal_today = db.query(MealDay).filter(MealDay.user_id == current_user.id, MealDay.date == date).first()
+    if meal_today is None:
+        raise HTTPException(status_code=404, detail="Mealday not posting")
+
+    result = []
+    date_part = daytime[:10]
+    meal_hours = db.query(MealHour).filter(
+        MealHour.user_id == current_user.id,
+        MealHour.time.like(f"{date_part}%")
+    ).all()
+
+    for meal in meal_hours:
+        try:
+            # 서명된 URL 생성 (URL은 1시간 동안 유효)
+            blob = bucket.blob(meal.picture)
+            signed_url = blob.generate_signed_url(expiration=timedelta(hours=1))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        time_str = meal.date.strftime('%H:%M')
+
+        meal_info = meal_day_schema.MealDay_today_mealhour_schema(
+            picture=signed_url,
+            date=time_str,
+        )
+        result.append(meal_info)
+
+    return meal_day_schema.MealDay_today_mealhour_list_schema(mealday=result)
+
+@router.patch("/update/burncaloire/{daytime}/{burncalorie}", status_code=status.HTTP_204_NO_CONTENT)
+def update_burncaloire(daytime: str, burncalorie: float = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    식단일일(MealDay) 소모칼로리 업뎃 :
+     - 입력예시 : daytime = 2024-06-01, Form형태(burncalorie)
+    """
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    mealtoday=meal_day_crud.get_MealDay_bydate(db,user_id=current_user.id,date=date)
+    if mealtoday is None:
+        raise HTTPException(status_code=404, detail="MealDaily not found")
+
+    mealtoday.burncalorie=burncalorie
+    db.add(mealtoday)
+    db.commit()
+    db.refresh(mealtoday)
+
+    return {"detail": "burncalorie updated successfully"}
+
+@router.get("/get/meal_recording_count/{year}/{month}", response_model=meal_day_schema.MealDay_today_calorie_schema)
+def get_meal_record_count(year: int, month: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+        특정 월 동안의 식단일일(MealDay) db생성 : 앱실행시(해당월 입력) 해당기간에 생성
+        - 입력예시 : year = 2024, month = 6
+    """
+    try:
+        # 주어진 월의 첫날과 마지막 날을 구합니다.
+        first_day = datetime(year, month, 1).date()
+        last_day = datetime(year, month, monthrange(year, month)[1]).date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    record_count = 0
+    # 해당 월의 모든 날짜에 대해 반복
+    date_iter = first_day
+    while date_iter <= last_day:
+        meal = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date_iter)
+        date_iter += timedelta(days=1)
+        if meal and meal.nowcalorie > 0.0:
+            record_count +=1
+
+    return {"record_count": record_count}

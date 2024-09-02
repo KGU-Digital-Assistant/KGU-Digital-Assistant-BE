@@ -930,3 +930,20 @@ async def profile_update(_user_profile: user_schema.UserProfile,
         raise HTTPException(status_code=404, detail="멘토로 본인을 추가할 순 없습니다.")
     user_crud.update_profile(db=db, profile_user=_user_profile, current_user=current_user)
     return current_user
+
+@router.patch("/update/weight", status_code=status.HTTP_204_NO_CONTENT)
+def update_burncaloire(weight: float = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    유저(User) 몸무게 업뎃 :
+     - 입력예시 :weight = 65.1
+    """
+
+    userinfo=user_crud.get_user_by_id(db,id=current_user.id)
+    if userinfo is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    userinfo.weight = weight
+    db.add(userinfo)
+    db.commit()
+    db.refresh(userinfo)
+
+    return {"detail": "user weight updated successfully"}

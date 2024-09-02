@@ -328,6 +328,8 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
+    if date.weekday() != 0:
+        raise HTTPException(status_code=401, detail="Start only on Monday")
 
     if current_user.cur_group_id:
         raise HTTPException(
