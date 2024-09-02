@@ -140,13 +140,13 @@ async def remove_meal(time:str,current_user: User = Depends(get_current_user), d
      if blob.exists():
          blob.delete()
 
-     db.delete(밥)
+     db.delete()
      db.commit()
      return {"detail": "Meal posting deleted successfully"}
 
 
-@router.post("/register_meal/{time}") ## 등록시 임시업로드에 사용한데이터 입력필요 (임시사진이름file_path, food_info, text)
-async def register_meal(time: str, file_path: str = Form(...), food_info: str = Form(...),text:str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@router.post("/register_meal/{time}/{hourminute}") ## 등록시 임시업로드에 사용한데이터 입력필요 (임시사진이름file_path, food_info, text)
+async def register_meal(time: str, hourminute: str,file_path: str = Form(...), food_info: str = Form(...),text:str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 등록 (/meal_hour/upload_temp api로 얻은 data 활용 : 10page 4번
      - 입력예시 : time = 2024-06-01점심, file_paht, food_info, text = 오늘점심등록햇당
@@ -157,6 +157,14 @@ async def register_meal(time: str, file_path: str = Form(...), food_info: str = 
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
+    # hourminute 값을 받아 시간과 분으로 변환
+    try:
+        hour = int(hourminute[:2])
+        minute = int(hourminute[2:])
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=400, detail="Invalid hourminute format. Use HHMM format like 1240.")
+    # 오늘 날짜와 hourminute를 결합한 datetime 객체 생성
+    date_time = datetime.combine(date, time(hour, minute))
 
     temp_blob = bucket.blob(file_path)
 
@@ -180,7 +188,7 @@ async def register_meal(time: str, file_path: str = Form(...), food_info: str = 
         name=food_info_dict.get("name",""),
         picture=meal_blob.name,
         text=text,
-        date=datetime.utcnow()+ timedelta(hours=9),  # 현재 시간을 기본값으로 설정
+        date=date_time,  # 현재 시간을 기본값으로 설정
         heart=False,
         time=time,
         carb=food_info_dict.get("carb", 0.0),
@@ -218,7 +226,7 @@ async def register_meal(time: str, file_path: str = Form(...), food_info: str = 
         name=food_info_dict.get("name",""),
         picture=meal_blob.name,
         text=text,
-        date=datetime.utcnow()+ timedelta(hours=9),  # 현재 시간을 기본값으로 설정
+        date=date_time,
         heart=food_info_dict.get("heart", False),
         time=time,
         carb=food_info_dict.get("carb", 0.0),

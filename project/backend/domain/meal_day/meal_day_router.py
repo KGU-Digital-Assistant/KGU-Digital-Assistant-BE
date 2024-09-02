@@ -217,6 +217,7 @@ def post_MealDay_date(daytime: str, current_user: User = Depends(get_current_use
             cheating=0,
             goalcalorie=0.0,
             nowcalorie=0.0,
+            burncalorie=0.0,
             gb_carb = None,
             gb_protein = None,
             gb_fat = None,
@@ -375,3 +376,19 @@ def get_MealDay_dday_goal_real(daytime: str, current_user: User = Depends(get_cu
 
     meal_info = meal_hour_crud.get_User_Meal_all_name_time(db,user_id=current_user.id,time=daytime)
     return {"dday" : dday, "goal" : goal_time, "real" : meal_info}
+
+
+@router.get("/get/calorie_today", response_model=meal_day_schema.MealDay_today_goal_calorie_schema)
+def get_MealDay_calorie_today(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    금일 칼로리, 목표칼로리 조회
+     - 입력예시 : 없음
+     - 출력 : todaycalorie(nowcalorie - burncalorie), MealDay.goalcaloire
+    """
+    date = datetime.utcnow() + timedelta(hours=9)
+    mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=current_user.id,date=date)
+    if mealtoday is None:
+        raise HTTPException(status_code=404, detail="Meal posting not found")
+    todaycalorie = mealtoday.nowcalorie - mealtoday.burncalorie
+    goalcalorie = mealtoday.goalcalorie
+    return {"todaycalorie" : todaycalorie, "goalcalorie" : goalcalorie}

@@ -42,6 +42,7 @@ class User(Base):  # 회원
     fcm_token = Column(String(length=255))  # fcm 토큰 -> 앱 실행시(?), 회원가입(?)
     cur_group_id = Column(Integer, ForeignKey("Group.id")) # 현재 참여중인 그룹 추가
     mentor_id = Column(Integer, ForeignKey("Mentor.id"))
+    weight = Column(Float, nullable=True) #몸무게
     groups = relationship('Group', secondary=Participation, back_populates='users')
 
 
@@ -146,6 +147,7 @@ class MealDay(Base):
     cheating = Column(Integer, nullable=True)
     goalcalorie = Column(Float, nullable=True)  # 목표칼로리
     nowcalorie = Column(Float, nullable=True)  # 현섭취칼로리
+    burncalorie = Column(Float, nullable=True) # 소모칼로리
     gb_carb = Column(String(length=255), nullable=True)  # 탄수화물 구분
     gb_protein = Column(String(length=255), nullable=True)  # 단백질 구분
     gb_fat = Column(String(length=255), nullable=True)  # 지방 구분

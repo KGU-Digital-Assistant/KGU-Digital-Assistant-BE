@@ -59,3 +59,7 @@ class MealDay_track_dday_goal_real_schema(BaseModel):
     dday: Optional[int]=None
     goal: Optional[List[track_routine_schema.TrackRoutine_time_title_schema]]=None
     real: Optional[List[meal_hour_schema.MealHour_daymeal_get_schema]]=None
+
+class MealDay_today_goal_calorie_schema(BaseModel):
+    todaycalorie: Optional[float]=None
+    goalcalorie: Optional[float]=None
