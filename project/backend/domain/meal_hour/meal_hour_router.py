@@ -1,6 +1,6 @@
 import os
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from models import MealDay, MealHour, TrackRoutine,User, Mentor
 from firebase_config import send_fcm_data_noti,send_fcm_notification
 from fastapi import APIRouter, Form,File,Depends, HTTPException,UploadFile
@@ -145,14 +145,15 @@ async def remove_meal(time:str,current_user: User = Depends(get_current_user), d
      return {"detail": "Meal posting deleted successfully"}
 
 
-@router.post("/register_meal/{time}/{hourminute}") ## 등록시 임시업로드에 사용한데이터 입력필요 (임시사진이름file_path, food_info, text)
-async def register_meal(time: str, hourminute: str,file_path: str = Form(...), food_info: str = Form(...),text:str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@router.post("/register_meal/{times}/{hourminute}") ## 등록시 임시업로드에 사용한데이터 입력필요 (임시사진이름file_path, food_info, text)
+async def register_meal(times: str, hourminute: str,file_path: str = Form(...), food_info: str = Form(...),text:str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단시간별(MealHour) 등록 (/meal_hour/upload_temp api로 얻은 data 활용 : 10page 4번
-     - 입력예시 : time = 2024-06-01점심, file_paht, food_info, text = 오늘점심등록햇당
+     - 입력예시 : times = 2024-06-01점심, file_paht, food_info, text = 오늘점심등록햇당
     """
-    date_part = time[:10]
-    time_part = time[11:]
+    date_part = times[:10]
+    time_part = times[11:]
+    time_label = times
     try:
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
@@ -164,7 +165,7 @@ async def register_meal(time: str, hourminute: str,file_path: str = Form(...), f
     except (ValueError, IndexError):
         raise HTTPException(status_code=400, detail="Invalid hourminute format. Use HHMM format like 1240.")
     # 오늘 날짜와 hourminute를 결합한 datetime 객체 생성
-    date_time = datetime.combine(date, time(hour, minute))
+    date_time = datetime.combine(date,time(hour, minute))
 
     temp_blob = bucket.blob(file_path)
 
@@ -190,7 +191,7 @@ async def register_meal(time: str, hourminute: str,file_path: str = Form(...), f
         text=text,
         date=date_time,  # 현재 시간을 기본값으로 설정
         heart=False,
-        time=time,
+        time=time_label,
         carb=food_info_dict.get("carb", 0.0),
         protein=food_info_dict.get("protein", 0.0),
         fat=food_info_dict.get("fat", 0.0),
@@ -228,7 +229,7 @@ async def register_meal(time: str, hourminute: str,file_path: str = Form(...), f
         text=text,
         date=date_time,
         heart=food_info_dict.get("heart", False),
-        time=time,
+        time=time_label,
         carb=food_info_dict.get("carb", 0.0),
         protein=food_info_dict.get("protein", 0.0),
         fat=food_info_dict.get("fat", 0.0),
@@ -243,10 +244,10 @@ async def register_meal(time: str, hourminute: str,file_path: str = Form(...), f
     db.refresh(add_food)
 
     username = user_crud.get_User_name(db,current_user.id)
-    mealtime = time[10:]
-    mentor_id = db.query(User.mentor_id).filter(User.id==current_user.id).first()
+    mealtime = times[10:]
+    mentor_id = db.query(User.mentor_id).filter(User.id==current_user.id).scalar()
     if mentor_id:
-        mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).first()
+        mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).scalar()
         if mentor_user_id:
             data = {
                 "user_id": current_user.id,

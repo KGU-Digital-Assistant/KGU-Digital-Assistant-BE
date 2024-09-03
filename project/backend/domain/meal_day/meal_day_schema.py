@@ -76,3 +76,4 @@ class MealDay_today_mealhour_list_schema(BaseModel):
 
 class MealDay_record_count_schecma(BaseModel):
     record_count: int
+    days: int

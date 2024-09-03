@@ -430,7 +430,8 @@ def get_MealDay_calorie_today(current_user: User = Depends(get_current_user), db
              MealDay.nowcalorie, MealDay.burncalorie. User.weight
 
     """
-    date = datetime.utcnow() + timedelta(hours=9)
+    date = (datetime.utcnow() + timedelta(hours=9)).date()
+    print(date)
     mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=current_user.id,date=date)
     if mealtoday is None:
         raise HTTPException(status_code=404, detail="Meal posting not found")
@@ -483,7 +484,7 @@ def get_today_Mealhour(daytime: str, current_user: User = Depends(get_current_us
     return meal_day_schema.MealDay_today_mealhour_list_schema(mealday=result)
 
 @router.patch("/update/burncaloire/{daytime}/{burncalorie}", status_code=status.HTTP_204_NO_CONTENT)
-def update_burncaloire(daytime: str, burncalorie: float = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_burncaloire(daytime: str, burncalorie: float, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단일일(MealDay) 소모칼로리 업뎃 :
      - 입력예시 : daytime = 2024-06-01, Form형태(burncalorie)
@@ -504,11 +505,12 @@ def update_burncaloire(daytime: str, burncalorie: float = Form(...), current_use
 
     return {"detail": "burncalorie updated successfully"}
 
-@router.get("/get/meal_recording_count/{year}/{month}", response_model=meal_day_schema.MealDay_today_calorie_schema)
+@router.get("/get/meal_recording_count/{year}/{month}", response_model=meal_day_schema.MealDay_record_count_schecma)
 def get_meal_record_count(year: int, month: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-        특정 월 동안의 식단일일(MealDay) db생성 : 앱실행시(해당월 입력) 해당기간에 생성
+        특정 월 동안의 식단게시수 조회
         - 입력예시 : year = 2024, month = 6
+        - 출력 : 식단기록일 / 해당월의 총 일수
     """
     try:
         # 주어진 월의 첫날과 마지막 날을 구합니다.
@@ -525,4 +527,6 @@ def get_meal_record_count(year: int, month: int, current_user: User = Depends(ge
         if meal and meal.nowcalorie > 0.0:
             record_count +=1
 
-    return {"record_count": record_count}
+    days = (date_iter - first_day).days
+
+    return {"record_count": record_count, "days": days}
