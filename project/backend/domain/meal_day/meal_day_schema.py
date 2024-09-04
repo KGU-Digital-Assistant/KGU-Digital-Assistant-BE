@@ -77,3 +77,11 @@ class MealDay_today_mealhour_list_schema(BaseModel):
 class MealDay_record_count_schecma(BaseModel):
     record_count: int
     days: int
+
+class MealDay_trackroutine_schema(BaseModel):
+    time: Optional[str] =None
+    title: Optional[str] = None
+    track_yn: Optional[bool] = None
+
+class MealDay_trackroutine_list_schema(BaseModel):
+    mealday: List[MealDay_trackroutine_schema]

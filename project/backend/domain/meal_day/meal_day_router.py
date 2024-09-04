@@ -530,3 +530,73 @@ def get_meal_record_count(year: int, month: int, current_user: User = Depends(ge
     days = (date_iter - first_day).days
 
     return {"record_count": record_count, "days": days}
+
+@router.get("/get/trackroutine_today/{daytime}", response_model=meal_day_schema.MealDay_trackroutine_list_schema)
+def get_trackroutine_daily(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    트랙루틴 시간대, Title, 트랙지킴여부 조회
+     - 입력예시 : daytime = 2024-06-01
+     - 출력 : 당일 트랙[Trackroutine.time, Trackroutine.title, Mealhour.track_goal]
+    """
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    result = []
+    mealtoday = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date)
+    if mealtoday is None:
+        raise HTTPException(status_code=404, detail="MealDay not found")
+    if mealtoday.track_id is None:
+        return meal_day_schema.MealDay_trackroutine_list_schema(mealday=result)
+
+    # 요일을 정수로 얻기 (월요일=0, 일요일=6)
+    weekday_number = date.weekday()
+    # 요일을 한글로 얻기 (월요일=0, 일요일=6)
+    weekday_str = ["월", "화", "수", "목", "금", "토", "일"][weekday_number]
+
+    group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=date,
+                                                               track_id=mealtoday.track_id)
+    if group_info is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    group, cheating_count, user_id2, flag, finish_date = group_info
+    solodate = date - group.start_day
+    days = str(solodate.days + 1)
+
+    combined_results = db.query(TrackRoutine.time, TrackRoutine.title).filter(
+        and_(
+            TrackRoutine.track_id == mealtoday.track_id,
+            or_(
+                TrackRoutine.week.like(f"%{weekday_str}%"),
+                TrackRoutine.date.like(f"%{days}%"),
+            )
+        )
+    ).all()
+    if not combined_results:
+        raise HTTPException(status_code=404, detail="No Use TrackRoutine today")
+
+    time_priority = {"아침": 1, "아점": 2, "점심": 3, "점저:":4, "저녁": 5, "야식": 6}
+    # TrackRoutine.time 분리하여 처리
+    for routine in combined_results:
+    # "아침, 점심, 저녁" 같은 문자열을 분리
+        times = routine.time.split(", ")
+
+        for time in times:
+            # MealHour에서 track_goal 값 가져오기
+            track_goal = db.query(MealHour.track_goal).filter(
+                MealHour.user_id == current_user.id,
+                MealHour.time.like(f"%{time}%"),  # 해당 시간대에 맞는 MealHour 검색
+                MealHour.daymeal_id == mealtoday.id
+            ).scalar()
+            if track_goal is None:
+                track_goal = False
+            # 결과 리스트에 추가
+            result.append(meal_day_schema.MealDay_trackroutine_schema(
+                time=time,  # 분리된 각 시간대
+                title=routine.title,
+                track_yn=track_goal  # 트랙 지킴 여부
+            ))
+    result_sorted = sorted(result, key=lambda x: time_priority.get(x.time, 99))
+
+    return meal_day_schema.MealDay_trackroutine_list_schema(mealday=result_sorted)
