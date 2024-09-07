@@ -374,6 +374,8 @@ def get_Track_Mealhour(id: int, daytime: str, db: Session = Depends(get_db)):
 
     return meal_day_schema.MealDay_track_today_schema(mealday=result)
 
+
+## 이거 수정필요(week 를 str이 아닌 int로 -> tbl도 다시생성되니까 변경)
 @router.get("/get/dday_goal_real/{daytime}",response_model=meal_day_schema.MealDay_track_dday_goal_real_schema)
 def get_MealDay_dday_goal_real(daytime: str, current_user: User = Depends(get_current_user), db: Session=Depends(get_db)):
     """
@@ -531,6 +533,8 @@ def get_meal_record_count(year: int, month: int, current_user: User = Depends(ge
 
     return {"record_count": record_count, "days": days}
 
+
+##이거 변경 (week 가 str아닌 int로 -> track루틴 tbl 변경)
 @router.get("/get/trackroutine_today/{daytime}", response_model=meal_day_schema.MealDay_trackroutine_list_schema)
 def get_trackroutine_daily(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """

@@ -144,7 +144,7 @@ async def remove_meal(time:str,current_user: User = Depends(get_current_user), d
      db.commit()
      return {"detail": "Meal posting deleted successfully"}
 
-
+## 이거변경(week 가 int로 ,track루틴 tbl 변경)
 @router.post("/register_meal/{times}/{hourminute}") ## 등록시 임시업로드에 사용한데이터 입력필요 (임시사진이름file_path, food_info, text)
 async def register_meal(times: str, hourminute: str,file_path: str = Form(...), food_info: str = Form(...),text:str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """

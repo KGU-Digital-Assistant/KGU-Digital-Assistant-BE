@@ -169,6 +169,7 @@ def get_track_all_list(current_user: User = Depends(get_current_user), db:Sessio
     return tracklist
 
 
+##이거변경(week 를 str에서 int로 -> track루틴 tbl 변경)
 @router.get("/get/{track_id}/Info", response_model=track_schema.Track_get_Info)
 def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user), db:Session=Depends(get_db)):
     """

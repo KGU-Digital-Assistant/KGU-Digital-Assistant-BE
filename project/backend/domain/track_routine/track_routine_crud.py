@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from fastapi import HTTPException
 
+
+## 전체변경
 def get_TrackRoutine_by_track_id(db: Session, track_id:int):
     trackroutines = db.query(TrackRoutine).filter(
         TrackRoutine.track_id==track_id

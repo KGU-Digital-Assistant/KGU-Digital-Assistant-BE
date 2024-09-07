@@ -19,6 +19,7 @@ router=APIRouter(
     prefix="/track/routine"
 )
 
+##전체변경
 @router.get("/get/{track_id}", response_model=track_routine_schema.TrackRoutineSchema)
 def get_TrackRoutine_track_id(track_id: int, db: Session = Depends(get_db)):
     track_routines = track_routine_crud.get_TrackRoutine_by_track_id(db,track_id=track_id)
