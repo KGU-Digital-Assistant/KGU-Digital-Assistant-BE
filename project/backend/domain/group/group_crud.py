@@ -22,7 +22,7 @@ def create_group(db: Session, track: Track, user_id: int):
     return db_group
 
 
-def get_group_by_id(db, group_id):
+def get_group_by_id(db: Session, group_id: int):
     return db.query(Group).filter(Group.id == group_id).first()
 
 
@@ -200,7 +200,8 @@ def get_group_by_date_track_id_all(db: Session, date: date, track_id: int):
     return result if result else None
 
 
-def add_participation(db: Session, user_id: int, group_id: int, cheating_count: int):
+def add_participation(db: Session, user_id: int, group_id: int,
+                      cheating_count: int):
     stmt = insert(Participation).values(
         user_id=user_id,
         group_id=group_id,
@@ -336,4 +337,22 @@ def exit_group(db: Session, user_id: int, date: date, group_id: int):
     db.execute(_updated)
     db.commit()
 
+#
+# def is_join_track(db: Session, track_id: int, user_id: int):
+#     select_query = select(Participation).where(
+#         (Participation.c.user_id == user_id)
+#     )
+#     res = db.execute(select_query).fetchall()
+#     groups =
+#     for row in res:
 
+
+def get_group_by_date_user_id(db: Session, _date: date, user_id: int):
+    select_query = select(Participation).where(
+        (Participation.c.user_id == user_id)
+    )
+    participations = db.execute(select_query).fetchall()
+    for participation in participations:
+        group = db.query(Group).filter(Group.id == participation.group_id,
+                                       Group.start_day <= _date,
+                                       Group.finish_day < date).first()
