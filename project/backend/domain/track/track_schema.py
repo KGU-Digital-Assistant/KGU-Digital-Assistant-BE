@@ -12,7 +12,7 @@ class TrackCreate(BaseModel):
     coffee: float
     alcohol: float
     duration: int
-    track_yn: bool
+    delete: bool
     alone: bool
     start_date: date
     end_date: date
@@ -41,7 +41,7 @@ class TrackSchema(BaseModel):
     coffee: float
     alcohol: float
     duration: int
-    track_yn: bool
+    delete: bool
 
     class Config:
         orm_mode = True
@@ -61,7 +61,7 @@ class Track_schema(BaseModel):
     coffee: Optional[float] = None
     alcohol: Optional[float] = None
     duration: Optional[int] = None
-    track_yn: bool
+    delete: bool
     cheating_count: Optional[int] = None
 
 class Track_list_get_schema(BaseModel):
