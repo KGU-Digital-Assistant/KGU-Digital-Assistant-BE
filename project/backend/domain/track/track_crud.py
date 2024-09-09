@@ -31,7 +31,7 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, c
     track.coffee = _track.coffee or track.coffee
     track.alcohol = _track.alcohol or track.alcohol
     track.duration = _track.duration
-    track.track_yn = _track.track_yn
+    track.delete = _track.delete
     track.start_date = _track.start_date
     track.end_date = _track.end_date
     track.alone = _track.alone
@@ -100,7 +100,7 @@ def copy_multiple_track(db: Session, track: Track, user_id: int):
         coffee=track.coffee,
         alcohol=track.alcohol,
         duration=track.duration,
-        track_yn=track.track_yn,
+        track_yn=track.delete,
         start_date=track.start_date,
         finish_date=track.finish_date,
         cheating_count=track.cheating_count,
