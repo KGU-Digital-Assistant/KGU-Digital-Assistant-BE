@@ -3,6 +3,7 @@ venvs
 migrations
 .idea
 myapi.db
+participation
 
 .ipynb_checkpoints
 .mypy_cache
