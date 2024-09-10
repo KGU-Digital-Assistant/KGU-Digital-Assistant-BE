@@ -178,6 +178,7 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
 
      - 홈화면 page1 : 4, 5에도 사용할 수 있을 듯
     """
+    ## 루틴반복단독데이터 스키마맞지않음 test필요
     tracks= track_crud.get_Track_bytrack_id(db,track_id=track_id)
     if tracks is None:
         raise HTTPException(status_code=404, detail="Track not found")

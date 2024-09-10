@@ -16,7 +16,7 @@ def get_MealDay_bydate(db: Session, user_id: int, date: date):
     return mealDaily
 
 
-def get_MealDay_bydate_cheating(db: Session, user_id: int, date: datetime):
+def get_MealDay_bydate_cheating(db: Session, user_id: int, date: date):
     mealDaily = db.query(MealDay.cheating).filter(
         MealDay.user_id == user_id,
         MealDay.date == date).first()

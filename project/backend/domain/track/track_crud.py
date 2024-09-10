@@ -1,7 +1,7 @@
 from typing import List
 
 from sqlalchemy import desc
-from models import User, Track, Invitation, MealDay, TrackRoutine
+from models import User, Track, Invitation, MealDay, TrackRoutine, TrackRoutineDate
 from sqlalchemy.orm import Session
 from domain.track.track_schema import Track_list_get_schema, TrackCreate, TrackSchema
 from datetime import datetime, timedelta

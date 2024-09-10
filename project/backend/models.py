@@ -102,6 +102,7 @@ class Track(Base):  # 식단트랙
     finish_date = Column(Date)
     share_count = Column(Integer, default=0)
     alone = Column(Boolean, default=True)  ## 개인트랙, 공유초대트랙여부
+    daily_calorie = Column(Float, default=0)
     routines = relationship("TrackRoutine", back_populates="track")
     # origin_id = Column(Integer, ForeignKey("Track.id"))
 
@@ -170,9 +171,11 @@ class MealDay(Base):
     cheating = Column(Integer, nullable=True)
     goalcalorie = Column(Float, nullable=True)  # 목표칼로리
     nowcalorie = Column(Float, nullable=True)  # 현섭취칼로리
+    burncalorie = Column(Float, nullable=True)  # 소모칼로리
     gb_carb = Column(String(length=255), nullable=True)  # 탄수화물 구분
     gb_protein = Column(String(length=255), nullable=True)  # 단백질 구분
     gb_fat = Column(String(length=255), nullable=True)  # 지방 구분
+    weight = Column(Float, nullable=True)  # 몸무게
     date = Column(Date, nullable=True)  # 등록일자
     routine_success_rate = Column(Float, nullable=True)  # 루틴 지킨 정도
     track_id = Column(Integer, ForeignKey("Track.id"), nullable=True)
@@ -191,7 +194,7 @@ class MealHour(Base):  ##식단게시글 (시간대별)
     text = Column(String(length=255), nullable=True)
     date = Column(DateTime, nullable=False)  ## 등록시점 분단뒤
     heart = Column(Boolean, nullable=True)
-    time = Column(String(length=255), nullable=True)  ## 등록시간대 아침, 점심, 저녁, 오후간식 등
+    time = Column(SqlEnum(MealTime), nullable=False)  # MORNING, LUNCH, . . .
     carb = Column(Float, nullable=True)
     protein = Column(Float, nullable=True)
     fat = Column(Float, nullable=True)
