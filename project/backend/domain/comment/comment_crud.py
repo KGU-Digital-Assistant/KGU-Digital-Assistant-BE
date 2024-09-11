@@ -6,7 +6,7 @@ from domain.meal_day.meal_day_crud import get_MealDay_bydate
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-def get_Comment(db: Session, user_id:int, date: date, mealtime=MealTime):
+def get_Comment(db: Session, user_id:int, date: date, mealtime: MealTime):
     mealtoday = get_MealDay_bydate(db,user_id=user_id, date=date)
     if mealtoday is None:
         raise HTTPException(status_code=404, detail="Meal not found")

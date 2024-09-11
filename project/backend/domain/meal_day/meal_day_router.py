@@ -77,7 +77,7 @@ def get_MealDay_date_cheating_count(daytime: str, current_user: User = Depends(g
         raise HTTPException(status_code=404, detail="MealDaily not found")
 
     if mealcheating.track_id is None:
-        return {"cheating_count": 9999}
+        return {"cheating_count": 9999, "user_id2": current_user.id}
 
     group_participation = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=date,
                                                                 track_id=mealcheating.track_id)
@@ -322,7 +322,7 @@ def get_Track_Mealhour(daytime: str, current_user: User = Depends(get_current_us
 
         meal_info = meal_day_schema.MealDay_track_hour_schema(
             name=meal.name,
-            calorie=meal.nowcalorie,
+            calorie=meal.calorie,
             date=meal.date,
             heart=meal.heart,
             picture=signed_url,
@@ -549,9 +549,9 @@ def get_meal_record_count(year: int, month: int, current_user: User = Depends(ge
     return {"record_count": record_count, "days": days}
 
 @router.get("/get/meal_avg_calorie/{year}/{month}", response_model=meal_day_schema.MealDay_avg_calorie_schecma)
-def get_meal_record_count(year: int, month: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_meal_record_count(year: int, month: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db))->float:
     """
-        특정 월 동안의 식단게시수 조회
+        특정 월 동안의 일 평균 칼로리 조회
         - 입력예시 : year = 2024, month = 6
         - 출력 : 식단기록일 / 해당월의 총 일수
     """

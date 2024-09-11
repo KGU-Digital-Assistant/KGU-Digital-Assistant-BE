@@ -25,13 +25,13 @@ def get_Comment_date_user_id_text(time: str, current_user: User = Depends(get_cu
      - 출력 : Comment.user_id, User.name, MealDay.alcohol
     """
     date_part = time[:10]
-    time_part = time[11:]
+    time_part = time[10:]
     try:
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
     mealtime = comment_crud.time_parse(time=time_part)
-    comment = comment_crud.get_Comment(db, user_id=current_user.id, date=date ,time_part=mealtime)
+    comment = comment_crud.get_Comment(db, user_id=current_user.id, date=date ,mealtime=mealtime)
     if comment is None:
         raise HTTPException(status_code=404, detail="Comments not found")
     return comment ##user_id, text 열출력(전체 행)
@@ -44,13 +44,14 @@ def get_Comment_date_user_id_text(user_id: int, time: str, db: Session = Depends
      - 출력 : Comment.user_id, User.name, MealDay.alcohol
     """
     date_part = time[:10]
-    time_part = time[11:]
+    time_part = time[10:]
+    print(time_part)
     try:
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
     mealtime = comment_crud.time_parse(time=time_part)
-    comment = comment_crud.get_Comment(db, user_id=user_id, date=date ,time_part=mealtime)
+    comment = comment_crud.get_Comment(db, user_id=user_id, date=date ,mealtime=mealtime)
     if comment is None:
         raise HTTPException(status_code=404, detail="Comments not found")
     return comment ##user_id, text 열출력(전체 행)
@@ -62,7 +63,7 @@ async def post_comment(user_id: int, time: str,text: str = Form(...), current_us
      - 입력예시 : user_id = 1(식단게시글주인), time = 2024-06-01저녁, text = 맛잇겟다
     """
     date_part = time[:10]
-    time_part = time[11:]
+    time_part = time[10:]
     try:
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:

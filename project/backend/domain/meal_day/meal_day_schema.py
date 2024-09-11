@@ -95,4 +95,4 @@ class MealDay_today_nutrient_schema(BaseModel):
     gb_fat: Optional[float]=None
 
 class MealDay_avg_calorie_schecma(BaseModel):
-    calorie: int
+    calorie: float
