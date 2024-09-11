@@ -228,20 +228,18 @@ def get_Mentors_User(daytime: str, current_user: User = Depends(get_current_user
         raise HTTPException(status_code=404, detail="Users not found")
     result=[]
 
-    date_part=daytime[:10]
-
     for user in Users:
         ranks = user_crud.get_User_rank(db,user.id)
         # User의 meal_hour 정보를 특정 날짜에 맞게 찾기.
+        meal_day = meal_day_crud.get_MealDay_bydate(db, user_id=user.id, date=date)
         meal_hours = db.query(MealHour).filter(
                 MealHour.user_id == user.id,
-                MealHour.time.like(f"{date_part}%")
+                MealHour.daymeal_id == meal_day.id
         ).all()
 
         meal_names = [meal_hour.name for meal_hour in meal_hours]
 
         # User의 meal_day 정보를 특정 날짜에 맞게 찾기.
-        meal_day = meal_day_crud.get_MealDay_bydate(db,user_id=user.id,date=date)
         now_calorie = meal_day.nowcalorie if meal_day else None
         cheating = meal_day.cheating if meal_day else None
         track_name=None

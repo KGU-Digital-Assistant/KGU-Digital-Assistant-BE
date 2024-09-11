@@ -152,7 +152,9 @@ def get_User_byemail(db: Session, mail: str):
 def update_profile(db: Session, profile_user: UserProfile,
                    current_user: User):
     _mentor = None
-    if profile_user.mentor_username:
+    if profile_user.mentor_username == "same":
+        mentor = _mentor = db.query(Mentor).filter(Mentor.id == current_user.mentor_id).first()
+    elif profile_user.mentor_username:
         _mentor = db.query(User).filter(User.username == profile_user.mentor_username).first()
 
         if _mentor:

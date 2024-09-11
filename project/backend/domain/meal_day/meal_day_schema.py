@@ -59,3 +59,40 @@ class MealDay_track_dday_goal_real_schema(BaseModel):
     dday: Optional[int]=None
     goal: Optional[List[track_routine_schema.TrackRoutine_time_title_schema]]=None
     real: Optional[List[meal_hour_schema.MealHour_daymeal_get_schema]]=None
+
+class MealDay_today_calorie_schema(BaseModel):
+    todaycalorie: Optional[float]=None
+    goalcalorie: Optional[float]=None
+    nowcalorie: Optional[float]=None
+    burncalorie: Optional[float]=None
+    weight : Optional[float]=None
+
+class MealDay_today_mealhour_schema(BaseModel):
+    date: Optional[str] =None
+    picture: Optional[str] = None
+
+class MealDay_today_mealhour_list_schema(BaseModel):
+    mealday: List[MealDay_today_mealhour_schema]
+
+class MealDay_record_count_schecma(BaseModel):
+    record_count: int
+    days: int
+
+class MealDay_trackroutine_schema(BaseModel):
+    time: Optional[str] =None
+    title: Optional[str] = None
+    track_yn: Optional[bool] = None
+
+class MealDay_trackroutine_list_schema(BaseModel):
+    mealday: List[MealDay_trackroutine_schema]
+
+class MealDay_today_nutrient_schema(BaseModel):
+    carb: Optional[float]=None
+    protein: Optional[float]=None
+    fat: Optional[float]=None
+    gb_carb: Optional[float]=None
+    gb_protein: Optional[float]=None
+    gb_fat: Optional[float]=None
+
+class MealDay_avg_calorie_schecma(BaseModel):
+    calorie: float

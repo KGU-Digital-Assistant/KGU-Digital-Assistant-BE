@@ -328,12 +328,16 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
+    if date.weekday() != 0:
+        raise HTTPException(status_code=401, detail="Start only on Monday")
 
     if current_user.cur_group_id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="이미 진행중인 트랙이 있음"
-        )
+        group = group_crud.get_group_by_id(db, current_user.cur_group_id)
+        if group.status == "STARTED":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="이미 진행중인 트랙이 있음"
+            )
 
     Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
     if Track_willuse is None:

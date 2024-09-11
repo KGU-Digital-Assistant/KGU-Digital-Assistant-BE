@@ -175,7 +175,10 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
     트랙상세보기 : 23page 0번
      - 입력예시 : track_id = 2
      - 출력 : Track.name, User.name, Group.start_date, Group.finish_date, Track.duration, Count(트랙사용중인사람수), [TrackRoutin(반복)],[TrackRoutin(단독)]
+
+     - 홈화면 page1 : 4, 5에도 사용할 수 있을 듯
     """
+    ## 루틴반복단독데이터 스키마맞지않음 test필요
     tracks= track_crud.get_Track_bytrack_id(db,track_id=track_id)
     if tracks is None:
         raise HTTPException(status_code=404, detail="Track not found")
@@ -263,4 +266,21 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
 #    db.commit()
 #    db.refresh(db_track)
 
+
+@router.get("/name/date")
+def get_track_name_date(current_user: User = Depends(get_current_user),
+                        db:Session = Depends(get_db)):
+    """
+    홈화면 page.3 5번
+    - 트랙 이름, 몇일차이지 가져오기
+    """
+    group = group_crud.get_group_by_id(db, current_user.cur_group_id)
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    track = track_crud.get_track_by_id(db, track_id=group.track_id)
+    if track is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    return {"name":track.name, "date":group.start_day - datetime.date().today()}
 

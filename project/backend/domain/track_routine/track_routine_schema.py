@@ -1,24 +1,34 @@
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, time
+from typing import Optional, List
 from pydantic import BaseModel
+from models import MealTime
+from sqlalchemy import Time
 
+
+# class TrackRoutine(BaseModel):
+#     title: str
+#     date: int
+#     calories: int
+#     week: int
+#     weekdays: List[int]
+#     times: str
+#     is_repeat: bool
+
+# ----------------------------------------
 
 class TrackRoutineCreate(BaseModel):
     title: str
-    date: Optional[str]
+    date: str
     calorie: Optional[float]
-    week: Optional[str]
+    weekday: Optional[str]
     time: Optional[str]
     repeat: bool
-
-################################################
 
 
 class TrackRoutineSchema(BaseModel):
     id: int
     track_id: int
     title: str
-    food: Optional[str] = None
     calorie: Optional[float] = None
     week: Optional[str] = None
     time: Optional[str] = None
@@ -36,9 +46,11 @@ class TrackRoutine_namecalorie_schema(BaseModel):
     title: str
     calorie: Optional[float] = None
 
+
 class TrackRoutine_time_title_schema(BaseModel):
-    time: Optional[str]=None
-    title: Optional[str]=None
+    time: Optional[str] = None
+    title: Optional[str] = None
+
 
 class TrackRoutine_time_title_schema(BaseModel):
     time: str
@@ -47,9 +59,35 @@ class TrackRoutine_time_title_schema(BaseModel):
 
 
 class TrackRoutin_id_title(BaseModel):
-    id: Optional[int]= None
-    title: Optional[str] =None
-    week: Optional[str] =None
-    time: Optional[str] =None
-    date: Optional[str] =None
-    repeat: Optional[bool]=None
+    id: Optional[int] = None
+    title: Optional[str] = None
+    week: Optional[str] = None
+    time: Optional[str] = None
+    date: Optional[str] = None
+    repeat: Optional[bool] = None
+
+
+class TrackRoutineResponse(BaseModel):
+    routine_id: int
+    routine_date_id: int
+    calorie: float
+    weekday: int
+    week: int
+    time: MealTime
+    title: str
+    clock: time
+
+
+class TrackRoutineDateSchema(BaseModel):
+    id: int
+    time: int
+    weekday: int
+    routine_id: int
+    date: int
+    clock: time
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+

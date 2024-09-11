@@ -1,7 +1,7 @@
 from typing import List
 
 from sqlalchemy import desc
-from models import User, Track, Invitation, MealDay, TrackRoutine
+from models import User, Track, Invitation, MealDay, TrackRoutine, TrackRoutineDate,Group
 from sqlalchemy.orm import Session
 from domain.track.track_schema import Track_list_get_schema, TrackCreate, TrackSchema
 from datetime import datetime, timedelta
@@ -31,7 +31,7 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, c
     track.coffee = _track.coffee or track.coffee
     track.alcohol = _track.alcohol or track.alcohol
     track.duration = _track.duration
-    track.track_yn = _track.track_yn
+    track.delete = _track.delete
     track.start_date = _track.start_date
     track.end_date = _track.end_date
     track.alone = _track.alone
@@ -68,22 +68,22 @@ def get_Track_bytrack_id(db: Session, track_id: int):
 
 
 def get_Track_mine_title_all(db:Session, user_id: int):
-    tracks = db.query(Track.id, Track.name, Track.start_date).filter(Track.user_id==user_id).all()
-    tracks = sorted(tracks, key=lambda x: x.start_date, reverse=True)
-    return [Track_list_get_schema(track_id=track.id, name=track.name, using= check_today_track_id(db,user_id=user_id)) for track in tracks]
+    tracks = db.query(Track.id, Track.name, Track.create_time).filter(Track.user_id==user_id).all()
+    tracks = sorted(tracks, key=lambda x: x.create_time, reverse=True)
+    return [Track_list_get_schema(track_id=track.id, name=track.name, create_time=track.create_time,using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
 
 
 def get_Track_share_title_all(db: Session, user_id: int):
-    invitations = db.query(Invitation.track_id).filter(Invitation.user_id == user_id).all()
+    invitations = db.query(Invitation.group_id).filter(Invitation.user_id == user_id).all()
     tracks = []
     for invitation in invitations:
-        track_id = invitation[0]  # 튜플에서 track_id를 얻음
-        track = db.query(Track.id, Track.name).filter(Track.id == track_id).first()
+        group_id = invitation[0]  # 튜플에서 track_id를 얻음
+        groups= db.query(Group.track_id).filter(Group.id==group_id).first()
+        track = db.query(Track.id, Track.name).filter(Track.id == groups.track_id).first()
         if track:
             tracks.append(track)
-    return [Track_list_get_schema(track_id=track.id, name=track.name, using=check_today_track_id(db, user_id)) for track
-            in
-            tracks]
+    return [Track_list_get_schema(track_id=track.id, name=track.name, create_time=track.create_time,using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
+
 
 
 def delete_track(db: Session, track_id: int):
@@ -100,7 +100,7 @@ def copy_multiple_track(db: Session, track: Track, user_id: int):
         coffee=track.coffee,
         alcohol=track.alcohol,
         duration=track.duration,
-        track_yn=track.track_yn,
+        track_yn=track.delete,
         start_date=track.start_date,
         finish_date=track.finish_date,
         cheating_count=track.cheating_count,
