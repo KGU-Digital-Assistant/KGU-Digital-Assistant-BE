@@ -501,7 +501,7 @@ def update_burncaloire(daytime: str, burncalorie: float, current_user: User = De
     return {"detail": "burncalorie updated successfully"}
 
 @router.patch("/update/weight/{daytime}/{weight}", status_code=status.HTTP_204_NO_CONTENT)
-def update_burncaloire(daytime: str, weight: float, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_weight(daytime: str, weight: float, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     식단일일(MealDay) 몸무게 업뎃 :
      - 입력예시 : daytime = 2024-06-01,weight = 15.2
