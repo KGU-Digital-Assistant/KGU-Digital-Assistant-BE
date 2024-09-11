@@ -108,3 +108,26 @@ def create_clear_routine(current_user: User = Depends(get_current_user),
 
     count = clear_routine_crud.create_clear_routine_init(db, track, current_user, group)
     return {"count": count}
+
+
+@router.get("/calendar/date")
+def get_routine_calendar(_date: datetime.date,
+                         cur_user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
+    """
+    ### 홈화면 1page 5번에 몇일 차인지
+    - date : 2024-09-21
+    - response: 트랙이름, 몇일차
+    """
+    clear_routine = clear_routine_crud.get_clear_routine_by_date(db, _date, cur_user)
+    if clear_routine is None:
+        raise HTTPException(status_code=404, detail="Clear routine not found")
+    group = group_crud.get_group_by_id(db, clear_routine.group_id)
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    track = track_crud.get_track_by_id(db=db, track_id=group.track_id)
+    day = (group.start_day - _date).days + 1
+    return {"track_name": track.name, "day": day}
+
+

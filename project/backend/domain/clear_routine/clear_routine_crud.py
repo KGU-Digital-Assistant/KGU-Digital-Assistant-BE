@@ -156,3 +156,8 @@ def get_calendar(db: Session, year: int, month: int, cur_user: User):
 
     return calendar, sum(success_cnt), sum(all_cnt)
 
+
+def get_clear_routine_by_date(db: Session, date: date, cur_user: User):
+    clear_routines = db.query(ClearRoutine).filter(ClearRoutine.date == date,
+                                                   ClearRoutine.user_id == cur_user.id,).first()
+    return clear_routines
