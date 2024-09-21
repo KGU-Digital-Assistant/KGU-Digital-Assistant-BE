@@ -35,7 +35,7 @@ def create_track(_current_user: User = Depends(user_router.get_current_user),
     return {"track_id": track.id}
 
 
-@router.patch("/create/next", response_model=track_schema.Track_schema)
+@router.patch("/create/next", response_model=track_schema.TrackSchema)
 def update_track(_track_id: int,
                  _track: TrackCreate,
                  cheating_cnt: int,
@@ -218,6 +218,7 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
 
     return {
         "track_name": tracks.name,
+        "icon": tracks.icon,
         "name": username,
         "track_start_day": tracks.start_date,
         "track_finish_day": tracks.finish_date,

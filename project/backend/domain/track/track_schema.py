@@ -8,12 +8,14 @@ from domain.track_routine.track_routine_schema import  TrackRoutineCreateSchema,
 
 class TrackCreate(BaseModel):
     name: str
+    icon: Optional[str]
     water: float
     coffee: float
     alcohol: float
     duration: int
     delete: bool
     alone: bool
+    calorie: float
     start_date: date
     end_date: date
 
@@ -35,13 +37,16 @@ class TrackResponse(BaseModel):
 # 이거 원본이랑 column 이름까지 같아야함
 class TrackSchema(BaseModel):
     id: int
+    icon: Optional[str]
     user_id: int
     name: str
-    water: float
-    coffee: float
-    alcohol: float
-    duration: int
+    water: Optional[float] = None
+    coffee: Optional[float] = None
+    alcohol: Optional[float] = None
+    duration: Optional[int] = None
     delete: bool
+    cheating_count: Optional[int] = None
+    daily_calorie: float
 
     class Config:
         orm_mode = True
@@ -55,6 +60,7 @@ class TrackList(BaseModel):
 ######################################
 class Track_schema(BaseModel):
     id: int
+    icon: Optional[str]
     user_id: int
     name: str
     water: Optional[float] = None
@@ -81,6 +87,7 @@ class Track_create_schema(BaseModel):
 
 class Track_get_Info(BaseModel):
     track_name: str
+    icon: str
     name: str
     track_start_day: Optional[date]=None
     track_finish_day: Optional[date]= None

@@ -89,6 +89,7 @@ class Track(Base):  # 식단트랙
     __tablename__ = "Track"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    icon = Column(String)
     user_id = Column(Integer, ForeignKey("User.id"), nullable=False)
     name = Column(String(length=255), default="새로운 식단 트랙")
     water = Column(Float, default=0)

@@ -253,16 +253,19 @@ def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_cu
     if meal_day is None:
         raise HTTPException(status_code=404, detail="MealDay not found")
     track_name = None
+    track_id = None
     dday = None
+    using_track = None
     if meal_day and meal_day.track_id:
         using_track = track_crud.get_Track_bytrack_id(db, track_id=meal_day.track_id)
         if using_track:
             track_name = using_track.name
+            track_id = using_track.track_id
         group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=date, track_id=meal_day.track_id)
         if group_info and group_info is not None:
             group, cheating_count, user_id2, flag, finish_date =group_info
             dday = (date - group.start_day).days + 1
-    return {"name": track_name, "dday":dday} ##name, d-day 열출력
+    return {"name": track_name, "dday": dday, "track_id": track_id} ##name, d-day 열출력
 
 @router.get("/get/{track_id}/{daytime}/name", response_model=group_schema.Group_get_track_name_schema)
 def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):

@@ -26,6 +26,7 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, c
         return None
 
     track.name = _track.name
+    track.icon = _track.icon
     track.cheating_count = cheating_cnt
     track.water = _track.water or track.water
     track.coffee = _track.coffee or track.coffee
@@ -35,6 +36,7 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, c
     track.start_date = _track.start_date
     track.end_date = _track.end_date
     track.alone = _track.alone
+    track.daily_calorie = _track.calorie
     db.commit()
     db.refresh(track)
     return track
