@@ -115,7 +115,7 @@ def get_routine_calendar(_date: datetime.date,
                          cur_user: User = Depends(get_current_user),
                          db: Session = Depends(get_db)):
     """
-    ### 홈화면 1page 5번에 몇일 차인지
+    ### 홈화면 3page 5번에 몇일 차인지
     - date : 2024-09-21
     - response: 트랙이름, 몇일차
     """

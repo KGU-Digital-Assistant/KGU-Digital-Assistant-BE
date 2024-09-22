@@ -268,20 +268,21 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
 #    db.refresh(db_track)
 
 
-@router.get("/name/date")
-def get_track_name_date(current_user: User = Depends(get_current_user),
-                        db:Session = Depends(get_db)):
-    """
-    홈화면 page.3 5번
-    - 트랙 이름, 몇일차이지 가져오기
-    """
-    group = group_crud.get_group_by_id(db, current_user.cur_group_id)
-    if group is None:
-        raise HTTPException(status_code=404, detail="Group not found")
-
-    track = track_crud.get_track_by_id(db, track_id=group.track_id)
-    if track is None:
-        raise HTTPException(status_code=404, detail="Track not found")
-
-    return {"name":track.name, "date":group.start_day - datetime.date().today()}
+# @router.get("/name/date")
+# def get_track_name_date(_date: datetime.date,
+#                         current_user: User = Depends(get_current_user),
+#                         db:Session = Depends(get_db)):
+#     """
+#     홈화면 page.3 5번
+#     - 트랙 이름, 몇일차이지 가져오기
+#     """
+#     group = group_crud.get_group_by_id(db, current_user.cur_group_id)
+#     if group is None:
+#         raise HTTPException(status_code=404, detail="Group not found")
+#
+#     track = track_crud.get_track_by_id(db, track_id=group.track_id)
+#     if track is None:
+#         raise HTTPException(status_code=404, detail="Track not found")
+#
+#     return {"name":track.name, "date":group.start_day - datetime.date().today()}
 

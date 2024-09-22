@@ -69,8 +69,7 @@ def get_routines_by_date(db: Session, date: date, cur_user: User) -> List[clear_
                                                      ClearRoutine.date == date).all()
     routines = []
     for clear_routine in clear_routines:
-        rou_date = db.query(TrackRoutineDate).filter(TrackRoutineDate.id == clear_routine.routine_date_id,
-                                                ).first()
+        rou_date = db.query(TrackRoutineDate).filter(TrackRoutineDate.id == clear_routine.routine_date_id,).first()
         rou = db.query(TrackRoutine).filter(TrackRoutine.id == rou_date.routine_id).first()
         schema = clear_routine_schema.ClearRoutineResponse(
             routine_id=clear_routine.routine_date_id,
