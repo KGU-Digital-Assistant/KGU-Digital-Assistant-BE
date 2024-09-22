@@ -245,7 +245,7 @@ def get_Mentors_User(daytime: str, current_user: User = Depends(get_current_user
         track_name=None
         dday=None
         if meal_day and meal_day.track_id:
-            using_track = track_crud.get_Track_bytrack_id(db,track_id=meal_day.track_id)
+            using_track = track_crud.get_track_by_track_id(db, track_id=meal_day.track_id)
             if using_track:
                 track_name = using_track.name
             group_info = group_crud.get_group_by_date_track_id_in_part(db,user_id=user.id, date=date,track_id=meal_day.track_id)

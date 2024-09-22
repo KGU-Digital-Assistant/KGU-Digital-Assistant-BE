@@ -103,34 +103,34 @@ def update_track(group_id: int, date: group_schema.GroupDate, db: Session = Depe
     return group_crud.update_group_date(db=db, group_id=group_id, date=date)
 
 
-@router.post("/invite-me", status_code=status.HTTP_204_NO_CONTENT)
-def invite_me(group_id: int,
-              current_user: User = Depends(user_router.get_current_user),
-              db: Session = Depends(get_db)):
-    """
-    본인도 트랙에 참여
-    """
-    group = group_crud.get_group_by_id(db=db, group_id=group_id)
-    if not group:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Group does not exist",
-        )
-
-    if group.status == GroupStatus.STARTED:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="트랙이 진행중 입니다."
-        )
-
-    if group.status == GroupStatus.TERMINATED:
-        track = track_crud.get_track_by_id(track_id=group.track_id, db=db)
-        group = group_crud.create_group(db, track, current_user.id)
-
-    group.users.append(current_user)
-    current_user.cur_group_id = group.id
-    db.commit()
-    return {"status": "ok"}
+# @router.post("/invite-me", status_code=status.HTTP_204_NO_CONTENT)
+# def invite_me(group_id: int,
+#               current_user: User = Depends(user_router.get_current_user),
+#               db: Session = Depends(get_db)):
+#     """
+#     본인도 트랙에 참여
+#     """
+#     group = group_crud.get_group_by_id(db=db, group_id=group_id)
+#     if not group:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Group does not exist",
+#         )
+#
+#     if group.status == GroupStatus.STARTED:
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="트랙이 진행중 입니다."
+#         )
+#
+#     if group.status == GroupStatus.TERMINATED:
+#         track = track_crud.get_track_by_id(track_id=group.track_id, db=db)
+#         group = group_crud.create_group(db, track, current_user.id)
+#
+#     group.users.append(current_user)
+#     current_user.cur_group_id = group.id
+#     db.commit()
+#     return {"status": "ok"}
 
 
 # 초대
@@ -257,7 +257,7 @@ def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_cu
     dday = None
     using_track = None
     if meal_day and meal_day.track_id:
-        using_track = track_crud.get_Track_bytrack_id(db, track_id=meal_day.track_id)
+        using_track = track_crud.get_track_by_track_id(db, track_id=meal_day.track_id)
         if using_track:
             track_name = using_track.name
             track_id = using_track.track_id
@@ -278,7 +278,7 @@ def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: U
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
+    Track_willuse = track_crud.get_track_by_track_id(db, track_id=track_id)
     if Track_willuse is None:
         raise HTTPException(status_code=404, detail="Track not found")
     finish_date=date +timedelta(days=Track_willuse.duration)
@@ -286,11 +286,11 @@ def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: U
     name_list=[]
     seen_trackname =set() #중복 track_id 확인용
     for track_id_iter in trackids:
-        track_info=track_crud.get_Track_bytrack_id(db,track_id=track_id_iter)
+        track_info=track_crud.get_track_by_track_id(db, track_id=track_id_iter)
         if track_info.name not in seen_trackname:
             name_list.append(track_info.name)
             seen_trackname.add(track_info.name)
-    tracknewrow = track_crud.get_Track_bytrack_id(db,track_id=track_id)
+    tracknewrow = track_crud.get_track_by_track_id(db, track_id=track_id)
     if tracknewrow and tracknewrow.name:
         tracknew = tracknewrow.name
     else:
@@ -314,7 +314,7 @@ def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: U
 
 
 @router.post("/start_track/{track_id}/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
-def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User = Depends(get_current_user),db: Session= Depends(get_db)):
+def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     트랙 시작하기 (기존 Mealday의 track_id, goal_calorie 변경 -> 기존 group 종료일 변경 -> 새로운 Group의 시작종료일세팅 ->Mealday 정보수정
      - 입력예시 : track_id = 14, daytime : 2024-09-01
@@ -342,27 +342,21 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
                 detail="이미 진행중인 트랙이 있음"
             )
 
-    Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
-    if Track_willuse is None:
+    track_will_use = track_crud.get_track_by_track_id(db, track_id=track_id)
+    if track_will_use is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    Group_willuse = group_crud.get_Group_bytrack_id_state_ready(db, track_id=track_id)
-    if Group_willuse is None:
-        db_groupnew = Group(
-            track_id = track_id,
-            creator = Track_willuse.user_id,
-            name = meal_hour_crud.create_file_name(user_id=current_user.id),
-            start_day = None,
-            finish_day = None,
-            status = GroupStatus.READY
-        )
-        db.add(db_groupnew)
-        db.commit()
-        db.refresh(db_groupnew)
-        Group_willuse = db_groupnew
-    if Track_willuse.alone == True: # 개인 트랙일 경우
-        group_crud.add_participation(db,user_id=current_user.id,group_id=Group_willuse.id,cheating_count=Track_willuse.cheating_count)
-        group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id,duration=Track_willuse.duration)
-    if Track_willuse.alone == False: # 개인 트랙이 아닐 경우
-        group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id, duration=Track_willuse.duration)
+
+    group_will_use = group_crud.get_group_bytrack_id_state_ready(db, track_id=track_id)
+    if group_will_use is None:
+        group_will_use = group_crud.create_group(db, track_will_use, current_user.id)
+
+    if track_will_use.alone == True: # 개인 트랙일 경우
+        group_crud.add_participation(db,user_id=current_user.id,group_id=group_will_use.id,cheating_count=track_will_use.cheating_count)
+        group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= group_will_use.id,duration=track_will_use.duration)
+        current_user.cur_group_id = group_will_use.id
+
+    if track_will_use.alone == False: # 개인 트랙이 아닐 경우
+        group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= group_will_use.id, duration=track_will_use.duration)
+
     nickname = user_crud.get_User_nickname(db,id=current_user.id)
-    return {"trackname" : Track_willuse.name, "nickname" : nickname}
+    return {"track_name": track_will_use.name, "nickname": nickname}

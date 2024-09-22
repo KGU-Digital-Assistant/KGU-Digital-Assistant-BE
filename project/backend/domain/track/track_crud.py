@@ -62,7 +62,7 @@ def get_Track_byuser_id(db: Session, user_id: int):
     return tracks
 
 
-def get_Track_bytrack_id(db: Session, track_id: int):
+def get_track_by_track_id(db: Session, track_id: int):
     tracks = db.query(Track).filter(
         Track.id == track_id
     ).first()
