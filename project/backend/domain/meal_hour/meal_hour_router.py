@@ -12,6 +12,7 @@ from domain.user import user_crud
 from domain.meal_hour import meal_hour_schema,meal_hour_crud
 from domain.meal_day import  meal_day_crud
 from domain.user.user_router import get_current_user
+from domain.group.group_crud import get_group_track_id_in_part_state_start
 from firebase_config import bucket
 import json
 import uuid
@@ -201,7 +202,6 @@ async def register_meal(times: str, hourminute: str,file_path: str = Form(...), 
     식단시간별(MealHour) 등록 (/meal_hour/upload_temp api로 얻은 data 활용 : 10page 4번
      - 입력예시 : times = 2024-06-01점심, file_paht, food_info, text = 오늘점심등록햇당
     """
-
     date_part = times[:10]
     time_part = times[10:]
     mealtime =meal_hour_crud.time_parse(time_part)
@@ -259,12 +259,27 @@ async def register_meal(times: str, hourminute: str,file_path: str = Form(...), 
 
     mealtoday = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date)
     weekday_number = date.weekday()
-    tracktitles = db.query(TrackRoutine.title).filter(
-            TrackRoutine.track_id == mealtoday.track_id
-    ).all()
-
     goal = False
-    ## 여기에 골 여부 확인하는 함수만들어서넣어야함
+    ###아래 코드 test 필요 식단 등록 잘햇는지 판단하는 내용 goal true false 여부
+    # if mealtoday and mealtoday.track_id:
+    #     group_part = get_group_track_id_in_part_state_start(db, user_id=current_user.id, track_id=mealtoday.track_id)
+    #     if group_part is None:
+    #         raise HTTPException(status_code=404, detail="User or Group not found")
+    #     group, cheating_count, user_id2, flag, finish_date = group_part
+    #     days = (date - group.start_day).days + 1
+    #     trackroutines = db.query(TrackRoutine).filter(
+    #         TrackRoutine.track_id == mealtoday.track_id
+    #     ).all()
+    #     if trackroutines is not None:
+    #         for trackroutin in trackroutines:
+    #             trackroutindates = db.query(TrackRoutineDate).filter(TrackRoutineDate.routine_id==trackroutin.id,
+    #                                               TrackRoutineDate.weekday==weekday_number,
+    #                                               TrackRoutineDate.time==mealtime,
+    #                                               TrackRoutineDate.date==days).first()
+    #             if trackroutindates and new_food.name in trackroutin.title: 
+    #                 goal = True
+    #                 break;
+
 
     add_food = MealHour(
         user_id=current_user.id,

@@ -127,11 +127,14 @@ def get_track_by_name(track_name: str, db: Session = Depends(get_db),
 @router.get("/get/mytracks", response_model=List[track_schema.Track_list_get_schema])
 def get_Track_mylist(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
     """
-    보유 트랙 정보 표시 : 19page 2-3번(개인트랙) *보류*
+    보유 트랙 정보 표시 : 19page 2-3번(개인트랙)
      - 입력예시 :
-     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name, Track.create_time, using:(True,False)]
+     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name,
+               recevied_user_id(트랙공유받은 user_id), recevied_user_name(트랙공유받은 user_name)
+             Track.create_time, using:(True,False)]
+              ** 공유받은 사람의 id, name이 null이면 개인트랙, 값이 있으면 본인이 공유한트랙
      - 빈출력 = track 없음
-     - Track.start_day가 느린순으로 출력
+     - Track.create_time가 느린순으로 출력
     """
     tracklist = track_crud.get_Track_mine_title_all(db,user_id=current_user.id)
     if tracklist is None:
@@ -142,11 +145,14 @@ def get_Track_mylist(current_user: User = Depends(get_current_user), db:Session 
 @router.get("/get/sharetracks", response_model=List[track_schema.Track_list_get_schema])
 def get_Track_sharelist(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
     """
-    보유 트랙 정보 표시 : 19page 2-3번(공유트랙)  *보류*
+    보유 트랙 정보 표시 : 19page 2-3번(공유한 트랙)
      - 입력예시 :
-     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name, Track.create_time, using:(True,False)]
+     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name,
+               recevied_user_id(트랙공유받은 user_id), recevied_user_name(트랙공유받은 user_name)
+             Track.create_time, using:(True,False)]
+              ** 공유받은 사람의 id, name이 null이면 개인트랙, 값이 있으면 본인이 공유한트랙
      - 빈출력 = track 없음
-     - Track.start_day가 느린순으로 출력
+     - Track.create_time가 느린순으로 출력
     """
     tracklist = track_crud.get_Track_share_title_all(db,user_id=current_user.id)
     if tracklist is None:
@@ -157,15 +163,19 @@ def get_Track_sharelist(current_user: User = Depends(get_current_user), db:Sessi
 @router.get("/get/alltracks", response_model=List[track_schema.Track_list_get_schema])
 def get_track_all_list(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
     """
-    보유 트랙 정보 표시 : 19page 2-3번(초대트랙)(만들어놓은 트랙 + 초대받아 시작한트랙)
+    보유 트랙 정보 표시 : 19page 2-3번(초대트랙)(본인트랙 + 공유한 트랙)
      - 입력예시 :
-     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name, Track.create_time, using:(True,False)]
+     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name,
+               recevied_user_id(트랙공유받은 user_id), recevied_user_name(트랙공유받은 user_name)
+             Track.create_time, using:(True,False)]
+              ** 공유받은 사람의 id, name이 null이면 개인트랙, 값이 있으면 본인이 공유한트랙
      - 빈출력 = track 없음
-     - Track.start_day가 느린순으로 출력
+     - Track.create_time가 느린순으로 출력
     """
     tracklist = track_crud.get_track_title_all(db,user_id=current_user.id)
     if tracklist is None:
         raise HTTPException(status_code=404, detail="Track not found")
+        return 0
     return tracklist
 
 
