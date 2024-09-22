@@ -17,6 +17,7 @@
 | release | 배포 전 작업 기준 |
 | feature | 기능 단위 구현 |
 | hotfix | 서비스 중 긴급 수정 건에 대한 처리 |
+| BE | 백엔드 개발 부분 |
 
 ## Commit
 
