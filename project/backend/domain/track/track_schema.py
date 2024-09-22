@@ -73,6 +73,8 @@ class Track_schema(BaseModel):
 class Track_list_get_schema(BaseModel):
     track_id: int
     name: str
+    icon: Optional[str]=None
+    daily_calorie: Optional[float]=None
     create_time: datetime
     using: Optional[bool] = None
 
