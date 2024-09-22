@@ -76,6 +76,8 @@ class Track_list_get_schema(BaseModel):
     icon: Optional[str]=None
     daily_calorie: Optional[float]=None
     create_time: datetime
+    recevied_user_id: Optional[int]=None
+    recevied_user_name: Optional[str]=None
     using: Optional[bool] = None
 
 class Track_create_schema(BaseModel):
