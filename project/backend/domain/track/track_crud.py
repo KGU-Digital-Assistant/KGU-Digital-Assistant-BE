@@ -26,6 +26,7 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, c
         return None
 
     track.name = _track.name
+    track.icon = _track.icon
     track.cheating_count = cheating_cnt
     track.water = _track.water or track.water
     track.coffee = _track.coffee or track.coffee
@@ -35,6 +36,7 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, c
     track.start_date = _track.start_date
     track.end_date = _track.end_date
     track.alone = _track.alone
+    track.daily_calorie = _track.calorie
     db.commit()
     db.refresh(track)
     return track
@@ -68,21 +70,21 @@ def get_Track_bytrack_id(db: Session, track_id: int):
 
 
 def get_Track_mine_title_all(db:Session, user_id: int):
-    tracks = db.query(Track.id, Track.name, Track.create_time).filter(Track.user_id==user_id).all()
+    tracks = db.query(Track).filter(Track.user_id==user_id).all()
     tracks = sorted(tracks, key=lambda x: x.create_time, reverse=True)
-    return [Track_list_get_schema(track_id=track.id, name=track.name, create_time=track.create_time,using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
+    return [Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie, create_time=track.create_time,using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
 
 
 def get_Track_share_title_all(db: Session, user_id: int):
-    invitations = db.query(Invitation.group_id).filter(Invitation.user_id == user_id).all()
+    invitations = db.query(Invitation.group_id).filter(Invitation.user_id == user_id,Invitation.status=="accepted").all()
     tracks = []
     for invitation in invitations:
         group_id = invitation[0]  # 튜플에서 track_id를 얻음
         groups= db.query(Group.track_id).filter(Group.id==group_id).first()
-        track = db.query(Track.id, Track.name).filter(Track.id == groups.track_id).first()
+        track = db.query(Track).filter(Track.id == groups.track_id).first()
         if track:
             tracks.append(track)
-    return [Track_list_get_schema(track_id=track.id, name=track.name, create_time=track.create_time,using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
+    return [Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie, create_time=track.create_time,using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
 
 
 
@@ -137,25 +139,25 @@ def check_today_track_id(db:Session, user_id: int, track_id: int) -> bool:
 
   
 def get_track_title_all(db:Session, user_id: int):
-    groups = group_crud.get_group_by_user_id_all(db,user_id=user_id)
     tracks = []
     seen_trackid =set() #중복 track_id 확인용
+    # 현재 사용자의 track 추가
+    trackmine = db.query(Track).filter(Track.user_id == user_id).all()
+
+    # trackmine의 데이터를 tracks에 추가, 중복 제거
+    for track in trackmine:
+        tracks.append(track)
+        seen_trackid.add(track.id)
+
+    groups = group_crud.get_group_by_user_id_all(db,user_id=user_id)
     for group_info in groups:
         group, cheating_count, user_id2, flag, finish_date =group_info
         track_id = group.track_id
         if track_id not in seen_trackid: #track_id 처리여부확인
-            track = db.query(Track.id, Track.name, Track.start_date, Track.create_time).filter(Track.id == track_id).first()
+            track = db.query(Track).filter(Track.id == track_id).first()
             if track:
                 tracks.append(track)
                 seen_trackid.add(track_id) #처리된 track_id 집합
-    # 현재 사용자의 track 추가
-    trackmine = db.query(Track.id, Track.name, Track.start_date, Track.create_time).filter(Track.user_id == user_id).all()
 
-    # trackmine의 데이터를 tracks에 추가, 중복 제거
-    for track in trackmine:
-        if track.id not in seen_trackid:
-            tracks.append(track)
-            seen_trackid.add(track.id)
-
-    return [Track_list_get_schema(track_id=track.id, name=track.name, create_time=track.create_time, using=check_today_track_id(db, user_id=user_id,track_id=track.id)) for track in tracks]
+    return [Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie, create_time=track.create_time, using=check_today_track_id(db, user_id=user_id,track_id=track.id)) for track in tracks]
 

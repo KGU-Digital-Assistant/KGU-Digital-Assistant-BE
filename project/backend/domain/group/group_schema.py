@@ -52,8 +52,9 @@ class Group_schema(BaseModel):
     finish_day: datetime.date
 
 class Group_name_dday_schema(BaseModel):
-    name: Optional[str]=None
-    dday: Optional[int]=None
+    name: Optional[str]
+    dday: Optional[int]
+    track_id: Optional[int]
 
 class Group_get_track_name_schema(BaseModel):
     trackold: Optional[List[str]] = None

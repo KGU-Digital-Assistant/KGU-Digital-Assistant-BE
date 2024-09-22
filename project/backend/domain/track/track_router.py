@@ -35,7 +35,7 @@ def create_track(_current_user: User = Depends(user_router.get_current_user),
     return {"track_id": track.id}
 
 
-@router.patch("/create/next", response_model=track_schema.Track_schema)
+@router.patch("/create/next", response_model=track_schema.TrackSchema)
 def update_track(_track_id: int,
                  _track: TrackCreate,
                  cheating_cnt: int,
@@ -129,7 +129,7 @@ def get_Track_mylist(current_user: User = Depends(get_current_user), db:Session 
     """
     보유 트랙 정보 표시 : 19page 2-3번(개인트랙) *보류*
      - 입력예시 :
-     - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
+     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name, Track.create_time, using:(True,False)]
      - 빈출력 = track 없음
      - Track.start_day가 느린순으로 출력
     """
@@ -144,7 +144,7 @@ def get_Track_sharelist(current_user: User = Depends(get_current_user), db:Sessi
     """
     보유 트랙 정보 표시 : 19page 2-3번(공유트랙)  *보류*
      - 입력예시 :
-     - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
+     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name, Track.create_time, using:(True,False)]
      - 빈출력 = track 없음
      - Track.start_day가 느린순으로 출력
     """
@@ -159,7 +159,7 @@ def get_track_all_list(current_user: User = Depends(get_current_user), db:Sessio
     """
     보유 트랙 정보 표시 : 19page 2-3번(초대트랙)(만들어놓은 트랙 + 초대받아 시작한트랙)
      - 입력예시 :
-     - 출력 : [TrackRoutin.id, TrackRoutine.name, using:(True,False)]
+     - 출력 : [Track.id, Track.icon, Track.daily_calorie, Track.name, Track.create_time, using:(True,False)]
      - 빈출력 = track 없음
      - Track.start_day가 느린순으로 출력
     """
@@ -218,6 +218,7 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
 
     return {
         "track_name": tracks.name,
+        "icon": tracks.icon,
         "name": username,
         "track_start_day": tracks.start_date,
         "track_finish_day": tracks.finish_date,
