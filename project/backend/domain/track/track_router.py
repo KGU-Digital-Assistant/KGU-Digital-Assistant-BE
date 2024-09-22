@@ -49,10 +49,10 @@ def update_track(_track_id: int,
     track = track_crud.track_update(db, _track_id, _current_user, _track, cheating_cnt)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    group = group_crud.create_group(db, track, _current_user.id)
-    if group is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="group not found")
+    # group = group_crud.create_group(db, track, _current_user.id) 이젠 스타트 할때 생성 할거
+    # if group is None:
+    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+    #                         detail="group not found")
     return track
 
 
@@ -179,7 +179,7 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
      - 홈화면 page1 : 4, 5에도 사용할 수 있을 듯
     """
     ## 루틴반복단독데이터 스키마맞지않음 test필요
-    tracks= track_crud.get_Track_bytrack_id(db,track_id=track_id)
+    tracks= track_crud.get_track_by_track_id(db, track_id=track_id)
     if tracks is None:
         raise HTTPException(status_code=404, detail="Track not found")
     username=user_crud.get_User_name(db,id=tracks.user_id)

@@ -71,7 +71,7 @@ def get_Group_bydate(db: Session, user_id: int, date: date):
     return group_info
 
 
-def get_Group_bytrack_id_state_ready(db: Session, track_id: int):
+def get_group_bytrack_id_state_ready(db: Session, track_id: int):
     groups = db.query(Group).filter(Group.track_id == track_id,
                                     Group.status == GroupStatus.READY).first()
     return groups
