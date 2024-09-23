@@ -359,4 +359,13 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
         group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= group_will_use.id, duration=track_will_use.duration)
 
     nickname = user_crud.get_User_nickname(db,id=current_user.id)
-    return {"track_name": track_will_use.name, "nickname": nickname}
+    return {"track_name": track_will_use.name, "nickname": nickname, "group_id": group_will_use.id}
+
+
+@router.delete("/start/cancel", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_track(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    group = group_crud.get_group_by_id(db, group_id)
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    group_crud.delete_start(group, current_user, db)
