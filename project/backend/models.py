@@ -227,7 +227,6 @@ class MentorInvite(Base):
     mentee_id = Column(Integer, ForeignKey('User.id'))
     mentor_id = Column(Integer, ForeignKey('User.id'))
     status = Column(String(length=255), default='pending')  # 'pending', 'accepted', 'rejected'
-
     mentee = relationship("User", foreign_keys=[mentee_id])
     mentor = relationship("User", foreign_keys=[mentor_id])
 

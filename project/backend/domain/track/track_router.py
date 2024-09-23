@@ -71,18 +71,18 @@ def update_track(track_id: int,
     track_crud.track_update(db, track_id, _current_user, _track, cheating_cnt)
 
 
-@router.post("{track_id}/change/alone-to-multiple", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/share/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 def change_track(track_id: int,
                  _current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     """
-    change: 개인트랙 -> 공유트랙,
+    ## 트랙 공유하기
     개인트랙을 하나 복사해서 하나 더 만드는 로직
     """
     track = track_crud.get_track_by_id(db, track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if track.user_id != _current_user.id:
+    if track.origin_track_id != _current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="트랙 권한이 없음")
 
     new_track = track_crud.copy_multiple_track(db, track, _current_user.id)

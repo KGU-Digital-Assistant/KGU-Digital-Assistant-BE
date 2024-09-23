@@ -97,20 +97,22 @@ def delete_track(db: Session, track_id: int):
 
 
 def copy_multiple_track(db: Session, track: Track, user_id: int):
+    track.share_count += 1
     new_track = Track(
         user_id=user_id,
+        origin_track_id=track.id,
         name=track.name,
         water=track.water,
         coffee=track.coffee,
         alcohol=track.alcohol,
         duration=track.duration,
-        track_yn=track.delete,
+        delete=track.delete,
         start_date=track.start_date,
         finish_date=track.finish_date,
         cheating_count=track.cheating_count,
         alone=False,
         create_time=datetime.now(),
-        share_count=track.share_count + 1,
+        share_count=track.share_count,
         # origin_id=track.id
     )
     db.add(new_track)
