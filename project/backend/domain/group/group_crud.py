@@ -1,7 +1,7 @@
 from datetime import timedelta, date, datetime
 from domain.group.group_schema import GroupCreate, InviteStatus, GroupDate, Respond, GroupStatus
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import select, insert, update
+from sqlalchemy import select, insert, update, and_, delete
 from domain.meal_day import meal_day_crud
 from domain.track_routine import track_routine_crud
 from models import Group, Track, Invitation, User, MealDay, Participation
@@ -358,3 +358,17 @@ def get_group_by_date_user_id(db: Session, _date: date, user_id: int):
         group = db.query(Group).filter(Group.id == participation.group_id,
                                        Group.start_day <= _date,
                                        Group.finish_day < date).first()
+
+
+def delete_start(group: Group, current_user: User, db: Session):
+    delete_query = delete(Participation).where(
+        and_(
+            Participation.c.user_id == current_user.id,
+            Participation.c.group_id == group.id
+        )
+    )
+
+    db.execute(delete_query)
+    db.delete(group)
+    current_user.cur_group_id = None
+    db.commit()
