@@ -419,16 +419,20 @@ def get_MealDay_dday_goal_real(daytime: str, current_user: User = Depends(get_cu
     meal_info = meal_hour_crud.get_User_Meal_all_name_time(db,user_id=current_user.id,daymeal_id=mealday.id)
     return {"dday" : dday, "goal" : goal_time, "real" : meal_info}
 
-@router.get("/get/calorie_today", response_model=meal_day_schema.MealDay_today_calorie_schema)
-def get_MealDay_calorie_today(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@router.get("/get/calorie_today/{daytime}", response_model=meal_day_schema.MealDay_today_calorie_schema)
+def get_MealDay_calorie_today(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     금일 칼로리, 목표칼로리 조회, 섭취칼로리, 소모칼로리, 몸무게 조회
-     - 입력예시 : 없음
+     - 입력예시 : 2024-06-01
      - 출력 : todaycalorie(nowcalorie - burncalorie), MealDay.goalcaloire,
              MealDay.nowcalorie, MealDay.burncalorie. MealDay.weight
 
     """
-    date = (datetime.utcnow() + timedelta(hours=9)).date()
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    #date = (datetime.utcnow() + timedelta(hours=9)).date()
     mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=current_user.id,date=date)
     if mealtoday is None:
         raise HTTPException(status_code=404, detail="Meal posting not found")
@@ -578,14 +582,17 @@ def get_meal_record_count(year: int, month: int, current_user: User = Depends(ge
         avg_calorie = 0
     return {"calorie": avg_calorie}
 
-@router.get("/get/goal_now_nutrient", response_model=meal_day_schema.MealDay_today_nutrient_schema)
-def get_MealDay_nutrient_today(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@router.get("/get/goal_now_nutrient/{daytime}", response_model=meal_day_schema.MealDay_today_nutrient_schema)
+def get_MealDay_nutrient_today(daytime:str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     금일 탄단지, 목표 탄단지 출력
      - 입력예시 : 없음
      - 출력 : carb,protein,fat, gb_carb, gb_proteinm, gb_carb
     """
-    date = (datetime.utcnow() + timedelta(hours=9)).date()
+    try:
+        date = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
     mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=current_user.id,date=date)
     if mealtoday is None:
         raise HTTPException(status_code=404, detail="Meal posting not found")
