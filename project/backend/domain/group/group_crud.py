@@ -372,3 +372,16 @@ def delete_start(group: Group, current_user: User, db: Session):
     db.delete(group)
     current_user.cur_group_id = None
     db.commit()
+
+def update_group_mealday_pushing_stop(db: Session, user_id: int, group: Group):
+    start_date = group.start_day
+    finish_date = group.finish_day
+    date_iter = start_date
+    while date_iter <= finish_date:
+        mealnew = meal_day_crud.get_MealDay_bydate(db, user_id=user_id, date=date_iter)
+        if mealnew:
+            mealnew.track_id = None
+            mealnew.goalcalorie = 0.0
+            db.add(mealnew)
+        date_iter += timedelta(days=1)
+    db.commit()

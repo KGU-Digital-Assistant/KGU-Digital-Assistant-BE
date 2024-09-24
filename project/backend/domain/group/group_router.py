@@ -367,5 +367,5 @@ def cancel_track(group_id: int, current_user: User = Depends(get_current_user), 
     group = group_crud.get_group_by_id(db, group_id)
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
-
+    group_crud.update_group_mealday_pushing_stop(db, user_id=current_user.id, group= group)
     group_crud.delete_start(group, current_user, db)
