@@ -1,4 +1,8 @@
 import datetime
+from http import HTTPStatus
+
+import schedule
+
 from enum import Enum
 from typing import List
 
@@ -17,6 +21,19 @@ from models import User, TrackRoutine
 router = APIRouter(
     prefix="/clear/routine",
 )
+
+
+@router.post("/list-up", response_model=clear_routine_schema.ClearRoutineListUp)
+def clear_routine_list_up(db: Session = Depends(get_db)):
+    """
+    # 루틴 자동 리스트 업
+    매일 05시 해야할 루틴들이 리스트업 됨.
+    """
+    res_list = clear_routine_crud.routine_list_up(db)
+    return {"res_list": res_list, "count": len(res_list)}
+
+
+schedule.every().day.at("05:00").do(clear_routine_list_up)
 
 
 @router.post("/checking/{routine_date_id}", response_model=clear_routine_schema.ClearRoutineSchema)
@@ -56,7 +73,8 @@ def get_routine_week(cur_user: User = Depends(get_current_user), db: Session = D
         raise HTTPException(status_code=404, detail="Group not found")
     track = track_crud.get_track_by_id(db=db, track_id=group.track_id)
 
-    routines_rate = clear_routine_crud.get_routine_all_by_group_id(group_id=group.id, track_id=track.id, user_id=cur_user.id, db=db)
+    routines_rate = clear_routine_crud.get_routine_all_by_group_id(group_id=group.id, track_id=track.id,
+                                                                   user_id=cur_user.id, db=db)
     if routines_rate is None:
         raise HTTPException(status_code=404, detail="Routine not found")
     return routines_rate
@@ -96,7 +114,7 @@ def get_routine_calendar(year: int,
 def create_clear_routine(current_user: User = Depends(get_current_user),
                          db: Session = Depends(get_db)):
     """
-    해당 날짜 되면 오늘의 루틴을 다 담을거임
+    ## 루틴 리스트 업
     """
     group = group_crud.get_group_by_id(db, current_user.cur_group_id)
     if group is None:
@@ -106,8 +124,8 @@ def create_clear_routine(current_user: User = Depends(get_current_user),
     if track is None:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    count = clear_routine_crud.create_clear_routine_init(db, track, current_user, group)
-    return {"count": count}
+    count, routine_list = clear_routine_crud.create_clear_routine_init(db, track, current_user, group)
+    return {"count": count, "list": routine_list}
 
 
 @router.get("/calendar/date")
@@ -129,5 +147,3 @@ def get_routine_calendar(_date: datetime.date,
     track = track_crud.get_track_by_id(db=db, track_id=group.track_id)
     day = (group.start_day - _date).days + 1
     return {"track_name": track.name, "day": day}
-
-

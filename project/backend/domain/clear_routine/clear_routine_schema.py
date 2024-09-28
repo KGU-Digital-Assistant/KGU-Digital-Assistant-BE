@@ -34,4 +34,6 @@ class Calendar(BaseModel):
     clear_routine_cnt: int
 
 
-
+class ClearRoutineListUp(BaseModel):
+    res_list: List[ClearRoutineSchema] = []
+    count: int = 0

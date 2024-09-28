@@ -1,6 +1,8 @@
 from datetime import timedelta, date, datetime
 from typing import List
 
+from sqlalchemy.sql.functions import current_user
+
 from domain.clear_routine import clear_routine_schema
 from domain.group.group_schema import GroupCreate, InviteStatus, GroupDate, Respond, GroupStatus
 from sqlalchemy.orm import Session, joinedload
@@ -90,7 +92,7 @@ def create_clear_routine_init(db: Session, track: Track, current_user: User, gro
     count = 0
     routines = db.query(TrackRoutine).filter(TrackRoutine.track_id == track.id,
                                              ).all()
-
+    clear_routine_list = []
     for routine in routines:
         routine_date = db.query(TrackRoutineDate).filter(
             TrackRoutineDate.routine_id == routine.id,
@@ -109,8 +111,9 @@ def create_clear_routine_init(db: Session, track: Track, current_user: User, gro
         )
         db.add(db_clear_routine)
         db.commit()
+        clear_routine_list.append(db_clear_routine)
         count += 1
-    return count
+    return count, clear_routine_list
 
 
 def get_first_last_day(year, month):
@@ -160,3 +163,25 @@ def get_clear_routine_by_date(db: Session, date: date, cur_user: User):
     clear_routines = db.query(ClearRoutine).filter(ClearRoutine.date == date,
                                                    ClearRoutine.user_id == cur_user.id,).first()
     return clear_routines
+
+
+def routine_list_up(db: Session):
+    routine_date_list = db.query(TrackRoutineDate).filter(TrackRoutineDate.date == date.today()).all()
+    response_list = []
+    for routine_date in routine_date_list:
+        routine = db.query(TrackRoutine).filter(TrackRoutine.id == routine_date.id,).first()
+        track = db.query(Track).filter(Track.id == routine.track_id).first()
+        user = db.query(User).filter(User.id == track.user_id).first()
+
+        clear_routine = ClearRoutine(
+            user_id=user.id,
+            routine_date_id=routine_date.id,
+            date=datetime.today(),
+            status=False,
+            weekday=routine_date.weekday,
+            group_id=user.cur_group_id
+        )
+        db.add(clear_routine)
+        response_list.append(clear_routine)
+    db.commit()
+    return response_list
