@@ -1,11 +1,14 @@
 from typing import List
 
 from sqlalchemy import desc
-from models import User, Track, Invitation, MealDay, TrackRoutine, TrackRoutineDate,Group
+
+from domain.track import track_schema
+from models import User, Track, Invitation, MealDay, TrackRoutine, TrackRoutineDate, Group
 from sqlalchemy.orm import Session
 from domain.track.track_schema import Track_list_get_schema, TrackCreate, TrackSchema
 from datetime import datetime, timedelta
 from domain.group import group_crud
+
 
 def track_create(db: Session, user: User):
     db_track = Track(
@@ -69,15 +72,19 @@ def get_track_by_track_id(db: Session, track_id: int):
     return tracks
 
 
-def get_Track_mine_title_all(db:Session, user_id: int):
-    tracks = db.query(Track).filter(Track.user_id==user_id).all()
+def get_Track_mine_title_all(db: Session, user_id: int):
+    tracks = db.query(Track).filter(Track.user_id == user_id).all()
     tracks = sorted(tracks, key=lambda x: x.create_time, reverse=True)
-    return [Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
-                                  create_time=track.create_time,recevied_user_id = get_user_id_using_track(db, track_id=track.id ,user_id= user_id),
-                                  recevied_user_name = get_user_name_using_track(db, track_id=track.id, user_id= user_id),
-                                  using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
+    return [
+        Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
+                              create_time=track.create_time,
+                              recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
+                              recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
+                              using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
+
+
 def get_Track_share_title_all(db: Session, user_id: int):
-    tracks_multi = db.query(Track).filter(Track.user_id==user_id).all()
+    tracks_multi = db.query(Track).filter(Track.user_id == user_id).all()
     tracks = []
     for track_solo in tracks_multi:
         track_share_all = db.query(Track).filter(Track.origin_track_id == track_solo.id).all()
@@ -85,10 +92,13 @@ def get_Track_share_title_all(db: Session, user_id: int):
             if track_share_one:
                 tracks.append(track_share_one)
     tracks = sorted(tracks, key=lambda x: x.create_time, reverse=True)
-    return [Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
-                                  create_time=track.create_time,recevied_user_id = get_user_id_using_track(db, track_id=track.id ,user_id= user_id),
-                                  recevied_user_name = get_user_name_using_track(db, track_id=track.id, user_id= user_id),
-                                  using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
+    return [
+        Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
+                              create_time=track.create_time,
+                              recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
+                              recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
+                              using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
+
 
 def delete_track(db: Session, track_id: int):
     track = db.query(Track).filter(Track.id == track_id).first()
@@ -132,17 +142,17 @@ def copy_multiple_track(db: Session, track: Track, user_id: int):
         db.commit()
 
     return new_track
-  
-  
-def check_today_track_id(db:Session, user_id: int, track_id: int) -> bool:
-    date = datetime.utcnow().date()+ timedelta(hours=9)
-    mealtoday = db.query(MealDay).filter(MealDay.user_id==user_id, MealDay.date==date).first()
-    if mealtoday and mealtoday.track_id==track_id:
+
+
+def check_today_track_id(db: Session, user_id: int, track_id: int) -> bool:
+    date = datetime.utcnow().date() + timedelta(hours=9)
+    mealtoday = db.query(MealDay).filter(MealDay.user_id == user_id, MealDay.date == date).first()
+    if mealtoday and mealtoday.track_id == track_id:
         return True
     return False
 
-  
-def get_track_title_all(db:Session, user_id: int):
+
+def get_track_title_all(db: Session, user_id: int):
     tracks = []
     #seen_trackid =set() #중복 track_id 확인용
     # 현재 사용자의 track 추가
@@ -153,7 +163,7 @@ def get_track_title_all(db:Session, user_id: int):
         tracks.append(track)
         #seen_trackid.add(track.id)
 
-    tracks_multi = db.query(Track).filter(Track.user_id==user_id).all()
+    tracks_multi = db.query(Track).filter(Track.user_id == user_id).all()
     for track_solo in tracks_multi:
         track_share_all = db.query(Track).filter(Track.origin_track_id == track_solo.id).all()
         for track_share_one in track_share_all:
@@ -162,20 +172,72 @@ def get_track_title_all(db:Session, user_id: int):
 
                 #seen_trackid.add(track.id)  # 처리된 track_id 집합
 
-    return [Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
-                                  create_time=track.create_time,recevied_user_id = get_user_id_using_track(db, track_id=track.id ,user_id= user_id),
-                                  recevied_user_name = get_user_name_using_track(db, track_id=track.id, user_id= user_id),
-                                  using= check_today_track_id(db,user_id=user_id,track_id=track.id)) for track in tracks]
+    return [
+        Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
+                              create_time=track.create_time,
+                              recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
+                              recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
+                              using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
 
-def get_user_id_using_track(db:Session, track_id: int, user_id: int):
+
+def get_user_id_using_track(db: Session, track_id: int, user_id: int):
     user_id = db.query(Track.user_id).filter(Track.id == track_id, Track.user_id != user_id).first()
     if user_id is None:
         return None
     return user_id[0]
 
-def get_user_name_using_track(db:Session, track_id: int, user_id: int):
-    user_id=get_user_id_using_track(db,track_id=track_id, user_id= user_id)
+
+def get_user_name_using_track(db: Session, track_id: int, user_id: int):
+    user_id = get_user_id_using_track(db, track_id=track_id, user_id=user_id)
     if user_id is None:
         return None
-    user_name = db.query(User.name).filter(User.id==user_id).first()
+    user_name = db.query(User.name).filter(User.id == user_id).first()
     return user_name[0]
+
+
+def search_track_name(db: Session, track_name: str):
+    tracks = db.query(Track).filter(Track.name.like(f"%{track_name}%"),
+                                    Track.delete == False).all()
+    track_list = []
+
+    for track in tracks:
+        track_list.append(track)
+    return track_list
+
+
+def levenshtein_distance(s1: str, s2: str) -> int:
+    len_s1, len_s2 = len(s1), len(s2)
+    dp = [[0 for _ in range(len_s2 + 1)] for _ in range(len_s1 + 1)]
+
+    for i in range(1, len_s1 + 1):
+        dp[i][0] = i
+    for j in range(1, len_s2 + 1):
+        dp[0][j] = j
+
+    for i in range(1, len_s1 + 1):
+        for j in range(1, len_s2 + 1):
+            if s1[i - 1] == s2[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]) + 1
+
+    return dp[len_s1][len_s2]
+
+
+def levenshtein_search(_track_name: str, db: Session) -> List[track_schema.TrackSearch]:
+    res = []
+    tracks = db.query(Track).all()
+
+    for track in tracks:
+        dist = levenshtein_distance(str(track.name), _track_name)
+        print(dist)
+        if dist <= 7:
+            res.append(track_schema.TrackSearch(
+                id=track.id,
+                track_name=track.name,
+                score=dist,
+            ))
+
+    res.sort(key=lambda x: x.score, reverse=True)
+
+    return res

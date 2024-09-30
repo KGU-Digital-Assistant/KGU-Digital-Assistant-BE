@@ -10,7 +10,7 @@ from domain.user import user_router, user_crud
 from domain.user.user_router import get_current_user
 from models import Track, User, TrackRoutine
 from domain.group import group_crud, group_schema
-from domain.track_routine import track_routine_crud,track_routine_schema
+from domain.track_routine import track_routine_crud, track_routine_schema
 from domain.track.track_schema import TrackCreate, TrackResponse, TrackSchema, TrackList
 from domain.track import track_crud, track_schema
 
@@ -35,6 +35,7 @@ def create_track(_current_user: User = Depends(user_router.get_current_user),
     return {"track_id": track.id}
 
 
+# 트랙 생성 도중에 강제종료 했을 때 예외 처리
 @router.patch("/create/next", response_model=track_schema.TrackSchema)
 def update_track(_track_id: int,
                  _track: TrackCreate,
@@ -89,15 +90,16 @@ def change_track(track_id: int,
     return new_track
 
 
-# track 특정 이름 포함 모두 검색 : ex) `건강` 검색-> `건강한 식단트랙`  (단 두글자 이상 검색해야함)
 @router.get("/search/{track_name}", response_model=TrackList, status_code=200)
 def get_track_by_name(track_name: str, db: Session = Depends(get_db),
                       page: int = 0, size: int = 10):
     """
-    이건 안쓸듯
+    # 관련 `키워드` 로 검색
+    - 검색 글자 수가 적을 때 사용 하면 좋음.
+    ex) `건강` 검색-> `건강한 식단트랙`  (단 두글자 이상 검색해야함)
     """
-    track_name.strip() # 앞뒤 공백 제거
-    if (len(track_name) < 2):
+    track_name.strip()  # 앞뒤 공백 제거
+    if len(track_name) < 2:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Track name must be at least 1 character",
@@ -108,6 +110,39 @@ def get_track_by_name(track_name: str, db: Session = Depends(get_db),
         'total': total,
         'tracks': tracks
     }
+
+
+# @router.get("/search/{track_name}", response_model=TrackList, status_code=200)
+# def get_tracks_by_name_levenshtein(track_name: str, db: Session = Depends(get_db), ):
+#     try:
+#         track_name.strip()  # 앞뒤 공백 제거
+#         track_list = track_crud.search_track_name(db=db, track_name=track_name)
+#         return TrackList(
+#             total=track_list.count(),
+#             tracks=track_list
+#         )
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#         )
+
+
+@router.get("/search/lev/{track_name}", response_model=track_schema.TrackSearchResponse, status_code=200)
+def get_tracks_by_name_levenshtein(track_name: str, db: Session = Depends(get_db), ):
+    """
+    ## 검색을 길게 했을 때, 연관 검색어 뜨도록 하는 검색 API
+    검색 글자 수가 7글자 이상일 때 사용 하면 좋음.
+    """
+    if len(track_name) < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Track name must be at least 1 character",
+        )
+
+    track_name.strip()
+    track_list = track_crud.levenshtein_search(track_name, db)
+    total = len(track_list)
+    return {"total": total, "tracks": track_list}
 
 
 #@router.get("/get/{track_id}", response_model=TrackSchema, status_code=200)
@@ -125,7 +160,7 @@ def get_track_by_name(track_name: str, db: Session = Depends(get_db),
 #    return tracks
 
 @router.get("/get/mytracks", response_model=List[track_schema.Track_list_get_schema])
-def get_Track_mylist(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
+def get_Track_mylist(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     보유 트랙 정보 표시 : 19page 2-3번(개인트랙)
      - 입력예시 :
@@ -136,14 +171,15 @@ def get_Track_mylist(current_user: User = Depends(get_current_user), db:Session 
      - 빈출력 = track 없음
      - Track.create_time가 느린순으로 출력
     """
-    tracklist = track_crud.get_Track_mine_title_all(db,user_id=current_user.id)
+    tracklist = track_crud.get_Track_mine_title_all(db, user_id=current_user.id)
     if tracklist is None:
         raise HTTPException(status_code=404, detail="Track not found")
         return 0
     return tracklist
 
+
 @router.get("/get/sharetracks", response_model=List[track_schema.Track_list_get_schema])
-def get_Track_sharelist(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
+def get_Track_sharelist(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     보유 트랙 정보 표시 : 19page 2-3번(공유한 트랙)
      - 입력예시 :
@@ -154,14 +190,15 @@ def get_Track_sharelist(current_user: User = Depends(get_current_user), db:Sessi
      - 빈출력 = track 없음
      - Track.create_time가 느린순으로 출력
     """
-    tracklist = track_crud.get_Track_share_title_all(db,user_id=current_user.id)
+    tracklist = track_crud.get_Track_share_title_all(db, user_id=current_user.id)
     if tracklist is None:
         raise HTTPException(status_code=404, detail="Track not found")
         return 0
     return tracklist
 
+
 @router.get("/get/alltracks", response_model=List[track_schema.Track_list_get_schema])
-def get_track_all_list(current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
+def get_track_all_list(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     보유 트랙 정보 표시 : 19page 2-3번(초대트랙)(본인트랙 + 공유한 트랙)
      - 입력예시 :
@@ -172,7 +209,7 @@ def get_track_all_list(current_user: User = Depends(get_current_user), db:Sessio
      - 빈출력 = track 없음
      - Track.create_time가 느린순으로 출력
     """
-    tracklist = track_crud.get_track_title_all(db,user_id=current_user.id)
+    tracklist = track_crud.get_track_title_all(db, user_id=current_user.id)
     if tracklist is None:
         raise HTTPException(status_code=404, detail="Track not found")
         return 0
@@ -180,7 +217,7 @@ def get_track_all_list(current_user: User = Depends(get_current_user), db:Sessio
 
 
 @router.get("/get/{track_id}/Info", response_model=track_schema.Track_get_Info)
-def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user), db:Session=Depends(get_db)):
+def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     트랙상세보기 : 23page 0번
      - 입력예시 : track_id = 2
@@ -189,29 +226,30 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
      - 홈화면 page1 : 4, 5에도 사용할 수 있을 듯
     """
     ## 루틴반복단독데이터 스키마맞지않음 test필요
-    tracks= track_crud.get_track_by_track_id(db, track_id=track_id)
+    tracks = track_crud.get_track_by_track_id(db, track_id=track_id)
     if tracks is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    username=user_crud.get_User_name(db,id=tracks.user_id)
-    today=datetime.utcnow().date()+ timedelta(hours=9)
+    username = user_crud.get_User_name(db, id=tracks.user_id)
+    today = datetime.utcnow().date() + timedelta(hours=9)
     #트랙을 공유한 횟수
     count = tracks.share_count
     #그룹 정보여부
-    group_one=group_crud.get_group_by_date_track_id_in_part(db,user_id=current_user.id,date=today,track_id=track_id)
+    group_one = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=today,
+                                                              track_id=track_id)
     if group_one and group_one is not None:
-        group, cheating_count, user_id2, flag, finish_date =group_one
+        group, cheating_count, user_id2, flag, finish_date = group_one
         group_startday = group.start_day
         group_finishday = group.finish_day
-        real_finishday=finish_date
+        real_finishday = finish_date
     else:
-        group_startday=None
-        group_finishday=None
-        real_finishday=None
+        group_startday = None
+        group_finishday = None
+        real_finishday = None
     # calorie 계산
-    calorie = track_routine_crud.get_calorie_average(track_id=track_id,db=db)
-    trackroutins=track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
-    repeat=[]
-    solo=[]
+    calorie = track_routine_crud.get_calorie_average(track_id=track_id, db=db)
+    trackroutins = track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
+    repeat = []
+    solo = []
     for trackroutin in trackroutins:
         routin_data = track_routine_schema.TrackRoutin_id_title(
             id=trackroutin.id,
@@ -295,4 +333,3 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
 #         raise HTTPException(status_code=404, detail="Track not found")
 #
 #     return {"name":track.name, "date":group.start_day - datetime.date().today()}
-
