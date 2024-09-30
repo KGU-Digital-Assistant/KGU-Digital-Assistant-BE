@@ -23,19 +23,19 @@ router=APIRouter(
 
 
 @router.post("/create/{track_id}")
-def create_track_routine(track_id: int,
-                         week: int, weekday: str,
-                         current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_track_routine(track_id: int, week: int, weekday: str,
+                         _current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    처음 트랙에서
-    (+)버튼 눌러서 생성 시
+    | 2024-09-28 수정
+    # 트랙 루틴 생성 하기
+    - (+)버튼 눌렀을 때 api 임.
     - week 몇주차인지
-    - weekday 몇요일인지
+    - weekday 몇요일인지 (ex: 월, 화, 수, ... )
     """
     track = track_crud.get_track_by_id(db, track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track does not exist")
-    if track.user_id != current_user.id:
+    if track.user_id != _current_user.id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="권한 없음")
 
@@ -54,6 +54,26 @@ def valid_routine_when_update(routine_id: int, user_id, db: Session):
     if track.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="권한 없음")
+
+
+@router.post("/create/next/{routine_date_id}")
+def create_next_routine(routine_date_id: int,
+                        track_routine: track_routine_schema.TrackRoutineCreateNext,
+                        _current_user: User = Depends(get_current_user),
+                        db: Session = Depends(get_db)):
+    """
+    # 루틴 만들기
+    - 순서: /track/routine/create/{trakc_id} -> /track/routine/next/{routine_date_id}
+    - weekday : 월, 화, 수, ...
+    - time: 아침, 점심, 아점, ....
+    """
+    routine_date = track_routine_crud.get_routine_date_by_id(routine_date_id, db)
+    if routine_date is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Routine does not exist")
+
+    valid_routine_when_update(routine_date.routine_id, _current_user.id, db)
+    rou_date, rou = track_routine_crud.update_routine_and_date(routine_date.id, track_routine, db)
+    return {"state": "ok"}
 
 
 @router.patch("/title/{routine_id}")

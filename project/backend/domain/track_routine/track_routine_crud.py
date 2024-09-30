@@ -1,5 +1,6 @@
 from calendar import calendar
 from datetime import date, datetime, timedelta, time
+from http import HTTPStatus
 from typing import List, Any, Type
 
 from rich import status
@@ -69,6 +70,7 @@ def get_track_routine_by_track_id(db: Session, track_id: int):
 
     return track_routines
 
+
 ##24.09.09
 def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int, track_id: int, date: date) -> float:
     # 요일을 정수로 얻기 (월요일=0, 일요일=6)
@@ -78,7 +80,7 @@ def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int, track_id:
 
     # 요일과 날짜에 맞는 트랙 루틴 조회
     trackroutines = db.query(TrackRoutine).filter(
-        TrackRoutine.track_id==track_id
+        TrackRoutine.track_id == track_id
     ).all()
 
     calorie = 0.0
@@ -86,12 +88,12 @@ def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int, track_id:
         return calorie
     for trackroutine in trackroutines:
         trackroutinedates = db.query(TrackRoutineDate).filter(
-            and_(TrackRoutineDate.routine_id==trackroutine.id,
-                 TrackRoutineDate.weekday==weekday_number,
-                 TrackRoutineDate.date==days)
+            and_(TrackRoutineDate.routine_id == trackroutine.id,
+                 TrackRoutineDate.weekday == weekday_number,
+                 TrackRoutineDate.date == days)
         ).all()
         for trackroutinedate in trackroutinedates:
-            calorie+=trackroutine.calorie
+            calorie += trackroutine.calorie
     return calorie
 
     # def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int, track_id: int, date: date) -> float:
@@ -123,6 +125,7 @@ def get_goal_caloire_bydate_using_trackroutine(db: Session, days: int, track_id:
     #     calorie -= result.calorie
     #
     # return calorie
+
 
 def get_calorie_average(track_id: int, db: Session):
     routines = db.query(TrackRoutine).filter(TrackRoutine.track_id == track_id).all()
@@ -216,19 +219,24 @@ def get_routine_clear_routines(current_user: User, year: int, month: int, db: Se
 
 # --------------- 240906 새로운 루틴 버젼 --------------------------
 
-def time_parse(time: str):
-    if time == "아침":
+
+def time_parse(_time: str):
+    if _time == "아침":
         return MealTime.BREAKFAST
-    if time == "아점":
+    if _time == "아점":
         return MealTime.BRUNCH
-    if time == "점심":
+    if _time == "점심":
         return MealTime.LUNCH
-    if time == "점저":
+    if _time == "점저":
         return MealTime.LINNER
-    if time == "저녁":
+    if _time == "저녁":
         return MealTime.DINNER
-    if time == "간식":
+    if _time == "간식":
         return MealTime.SNACK
+    raise HTTPException(
+        status_code=HTTPStatus.BAD_REQUEST,
+        detail="invalid time1"
+    )
 
 
 # def create_routines(track: Track, track_routine: track_routine_schema.TrackRoutine, db: Session):
@@ -321,7 +329,8 @@ def update_calorie(db: Session, routine_id: int, calorie: int):
     db.commit()
 
 
-def create_track_routine_repeat(routine_id: int, user: User, db: Session) -> list[track_routine_schema.TrackRoutineDateSchema]:
+def create_track_routine_repeat(routine_id: int, user: User, db: Session) \
+        -> list[track_routine_schema.TrackRoutineDateSchema]:
     routine = db.query(TrackRoutine).filter(TrackRoutine.id == routine_id).first()
     routine_date = db.query(TrackRoutineDate).filter(TrackRoutineDate.routine_id == routine_id).first()
     track = db.query(Track).filter(Track.id == routine.track_id).first()
@@ -337,7 +346,6 @@ def create_track_routine_repeat(routine_id: int, user: User, db: Session) -> lis
         db.add(db_routine_date)
         db.commit()
         routines.append(track_routine_schema.TrackRoutineDateSchema.from_orm(db_routine_date))
-
 
     return routines
 
@@ -389,6 +397,7 @@ def get_routine_list(db: Session, track_id: int, week: int, weekday: int):
 
     return sorted_data
 
+
 def get_routine_date_by_id(routine_date_id: int, db: Session):
     return db.query(TrackRoutineDate).filter(TrackRoutineDate.id == routine_date_id).first()
 
@@ -404,3 +413,64 @@ def delete_routine_date(id: int, db: Session):
     db_routine_date = db.query(TrackRoutineDate).filter(TrackRoutineDate.id == id).first()
     db.delete(db_routine_date)
     db.commit()
+
+
+def insert_time(_time: int):
+    print(_time)
+    if _time == MealTime.BREAKFAST:
+        return "BREAKFAST"
+    if _time == MealTime.BRUNCH:
+        return "BRUNCH"
+    if _time == MealTime.LUNCH:
+        return "LUNCH"
+    if _time == MealTime.LINNER:
+        return "LINNER"
+    if _time == MealTime.DINNER:
+        return "DINNER"
+    if _time == MealTime.SNACK:
+        return "SNACK"
+    else:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Invalid time2"
+        )
+
+
+def update_routine_and_date(routine_date_id: int, _track_routine: track_routine_schema.TrackRoutineCreateNext,
+                            db: Session):
+    db_routine_date = db.query(TrackRoutineDate).filter(TrackRoutineDate.id == routine_date_id).first()
+    if db_routine_date is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail=f'Track routine with id {routine_date_id} not found'
+        )
+
+    db_routine_date.clock = _track_routine.clock
+    weekday = weekday_parse(_track_routine.weekday)
+    db_routine_date.weekday = weekday
+    _date = 0
+    _date = db_routine_date.date // 7
+    _date = (_date * 7) + weekday + 1
+    db_routine_date.date = _date
+    _time = 0
+    _time = time_parse(_track_routine.time)
+    db_routine_date.time = insert_time(_time)
+
+    db_routine = db.query(TrackRoutine).filter(TrackRoutine.id == db_routine_date.routine_id).first()
+    db_routine.title = _track_routine.title
+    db_routine.calorie = _track_routine.calorie
+
+    if _track_routine.repeat:
+        track = db.query(Track).filter(Track.id == db_routine.track_id).first()
+        for i in range(db_routine_date.date + 7, track.duration + 1, 7):
+            db_routine_date = TrackRoutineDate(
+                routine_id=db_routine.id,
+                date=i,
+                time=db_routine_date.time,
+                weekday=db_routine_date.weekday,
+                clock=db_routine_date.clock
+            )
+            db.add(db_routine_date)
+
+    db.commit()
+    return db_routine_date, db_routine

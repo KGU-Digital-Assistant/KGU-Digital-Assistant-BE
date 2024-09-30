@@ -28,7 +28,7 @@ class TrackRoutineCreate(BaseModel):
 class TrackRoutineSchema(BaseModel):
     id: int
     track_id: int
-    title: str
+    title: str  # 식단 이름
     calorie: Optional[float] = None
     week: Optional[str] = None
     time: Optional[str] = None
@@ -91,3 +91,11 @@ class TrackRoutineDateSchema(BaseModel):
         from_attributes = True
 
 
+class TrackRoutineCreateNext(BaseModel):
+    title: str
+    clock: time
+    weekday: str
+    time: str
+    calorie: float
+    repeat: bool
+    alarm: bool

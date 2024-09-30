@@ -6,6 +6,7 @@ from domain.meal_day.meal_day_crud import get_MealDay_bydate
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
+
 def get_Comment(db: Session, user_id:int, date: date, mealtime: MealTime):
     mealtoday = get_MealDay_bydate(db,user_id=user_id, date=date)
     if mealtoday is None:
@@ -26,17 +27,3 @@ def get_Comment(db: Session, user_id:int, date: date, mealtime: MealTime):
         if user_name:
             result.append(Comment_id_name_text(user_id=comment.user_id, name=user_name.name, text=comment.text))
     return result
-def time_parse(time: str):
-    if time == "아침":
-        return MealTime.BREAKFAST
-    if time == "아점":
-        return MealTime.BRUNCH
-    if time == "점심":
-        return MealTime.LUNCH
-    if time == "점저":
-        return MealTime.LINNER
-    if time == "저녁":
-        return MealTime.DINNER
-    if time == "간식":
-        return MealTime.SNACK
-

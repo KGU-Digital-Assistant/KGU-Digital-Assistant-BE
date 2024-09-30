@@ -12,6 +12,7 @@ from firebase_config import send_fcm_notification
 from domain.user.user_crud import get_User,get_User_name
 from datetime import datetime, timedelta
 from starlette import status
+from domain.track_routine.track_routine_crud import time_parse
 
 router=APIRouter(
     prefix="/comment"
@@ -30,7 +31,7 @@ def get_Comment_date_user_id_text(time: str, current_user: User = Depends(get_cu
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    mealtime = comment_crud.time_parse(time=time_part)
+    mealtime = time_parse(time=time_part)
     comment = comment_crud.get_Comment(db, user_id=current_user.id, date=date ,mealtime=mealtime)
     if comment is None:
         raise HTTPException(status_code=404, detail="Comments not found")
@@ -50,7 +51,7 @@ def get_Comment_date_user_id_text(user_id: int, time: str, db: Session = Depends
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    mealtime = comment_crud.time_parse(time=time_part)
+    mealtime = time_parse(time=time_part)
     comment = comment_crud.get_Comment(db, user_id=user_id, date=date ,mealtime=mealtime)
     if comment is None:
         raise HTTPException(status_code=404, detail="Comments not found")
@@ -68,7 +69,7 @@ async def post_comment(user_id: int, time: str,text: str = Form(...), current_us
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    mealtime = comment_crud.time_parse(time=time_part)
+    mealtime = time_parse(time=time_part)
     daymeal = meal_day_crud.get_MealDay_bydate(db, user_id=user_id,date=date)
     if daymeal is None:
         raise HTTPException(status_code=404, detail="Meal post not Found")
