@@ -14,6 +14,9 @@ from fastapi import HTTPException
 
 
 def get_trackRoutine_by_track_id(db: Session, track_id: int):
+    track=db.query(Track).filter(Track.id == track_id).first()
+    if track and track.delete == True:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track state is deleted")
     trackroutines = db.query(TrackRoutine).filter(
         TrackRoutine.track_id == track_id
     ).first()

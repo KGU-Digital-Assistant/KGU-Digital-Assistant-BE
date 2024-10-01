@@ -35,6 +35,8 @@ def create_track_routine(track_id: int, week: int, weekday: str,
     track = track_crud.get_track_by_id(db, track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track does not exist")
+    if track.delete == True:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track state is deleted")
     if track.user_id != _current_user.id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="권한 없음")
@@ -51,6 +53,8 @@ def valid_routine_when_update(routine_id: int, user_id, db: Session):
     track = track_crud.get_track_by_id(db, routine.track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track does not exist")
+    if track.delete == True:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track state is deleted")
     if track.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="권한 없음")
@@ -173,6 +177,8 @@ def delete_TrackRoutine(track_id: int,
     트랙 생성 중에 `저장하기` 안누르고 뒤로가기 눌렀을 때, 만든 루틴과 트랙 다 삭제
     """
     track = track_crud.get_track_by_id(db, track_id)
+    if track.delete == True:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track state is deleted")
     if track is None:
         raise HTTPException(status_code=404, detail="Track does not exist")
 
