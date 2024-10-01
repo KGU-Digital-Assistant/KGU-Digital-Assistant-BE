@@ -247,22 +247,22 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
         real_finishday = None
     # calorie 계산
     calorie = track_routine_crud.get_calorie_average(track_id=track_id, db=db)
-    trackroutins = track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
-    repeat = []
-    solo = []
-    for trackroutin in trackroutins:
-        routin_data = track_routine_schema.TrackRoutin_id_title(
-            id=trackroutin.id,
-            title=trackroutin.title,
-            week=trackroutin.week,
-            time=trackroutin.time,
-            date=trackroutin.date,
-            repeat=trackroutin.repeat,
-        )
-        if trackroutin.repeat:
-            repeat.append(routin_data)
-        else:
-            solo.append(routin_data)
+    # trackroutins = track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
+    # repeat = []
+    # solo = []
+    # for trackroutin in trackroutins:
+    #     routin_data = track_routine_schema.TrackRoutin_id_title(
+    #         id=trackroutin.id,
+    #         title=trackroutin.title,
+    #         week=trackroutin.week,
+    #         time=trackroutin.time,
+    #         date=trackroutin.date,
+    #         repeat=trackroutin.repeat,
+    #     )
+    #     if trackroutin.repeat:
+    #         repeat.append(routin_data)
+    #     else:
+    #         solo.append(routin_data)
 
     return {
         "track_name": tracks.name,
@@ -280,8 +280,6 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
         "alcohol": tracks.alcohol,
         "water": tracks.water,
         "cheating_count": tracks.cheating_count,
-        "repeatroutin": repeat,
-        "soloroutin": solo
     }
 
 #@router.post("/post/{user_id})", response_model=track_schema.Track_create_schema)##회원일경우
