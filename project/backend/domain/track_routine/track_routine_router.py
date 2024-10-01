@@ -33,11 +33,12 @@ def create_track_routine(track_id: int, week: int, weekday: str,
     - weekday 몇요일인지 (ex: 월, 화, 수, ... )
     """
     track = track_crud.get_track_by_id(db, track_id)
+    if track.delete:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Track is deleted")
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track does not exist")
     if track.user_id != _current_user.id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="권한 없음")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="권한 없음")
 
     routine = track_routine_crud.create_routine(db, track_id)
     routine_date = track_routine_crud.init_routine_date(week, weekday, routine.id, db)
@@ -52,8 +53,9 @@ def valid_routine_when_update(routine_id: int, user_id, db: Session):
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track does not exist")
     if track.user_id != user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="권한 없음")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="권한 없음")
+    if track.delete:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Track is deleted")
 
 
 @router.post("/create/next/{routine_date_id}")
@@ -209,8 +211,7 @@ def get_track_routine(track_id: int, week: int, weekday: str,
     """
     # group_crud.is_join_track(db, track_id, current_user.id)
     # 트랙할 때 따로 트랙 복제 예정..
-    return track_routine_crud.get_routine_list(db, track_id, week,
-                                               track_routine_crud.weekday_parse(weekday))
+    return track_routine_crud.get_routine_list(db, track_id, week, track_routine_crud.weekday_parse(weekday))
 
 
 @router.get("/routine_date/{routine_date_id}")
@@ -229,10 +230,12 @@ def get_routine_date(routine_date_id: int,
 # ------------------ 위에껀 새로 만든 거 --------------------------
 
 @router.get("/get/{track_id}", response_model=track_routine_schema.TrackRoutineSchema)
-def get_TrackRoutine_track_id(track_id: int, db: Session = Depends(get_db)):
+def get_track_routine_track_id(track_id: int, db: Session = Depends(get_db)):
     track_routines = track_routine_crud.get_trackRoutine_by_track_id(db, track_id=track_id)
     if track_routines is None:
         raise HTTPException(status_code=404, detail="track_routine not found")
+    if track_routines.delete:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Track is deleted")
     return track_routines
 
 
@@ -256,6 +259,8 @@ def get_track_routine(routine_id: int, db: Session = Depends(get_db)):
     routine = track_routine_crud.get_routine_by_routine_id(db=db, routine_id=routine_id)
     if routine is None:
         raise HTTPException(status_code=404, detail="Routine does not exist")
+    if routine.delete:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Track is deleted")
     return routine
 
 
@@ -305,7 +310,7 @@ def get_TrackRoutine_track_title_calorie_user(time: str, current_user: User = De
 
     combine_result=[]
     trackroutines = db.query(TrackRoutine).filter(
-            TrackRoutine.track_id == mealtoday.track_id
+            TrackRoutine.track_id == mealtoday.track_id, TrackRoutine.delete == False
     ).all()
 
     if not trackroutines:
