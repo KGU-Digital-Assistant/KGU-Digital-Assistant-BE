@@ -1,5 +1,7 @@
+from http.client import HTTPException
 from typing import List
 
+from pygments.lexers import q
 from sqlalchemy import desc
 
 from domain.track import track_schema
@@ -73,7 +75,8 @@ def get_track_by_track_id(db: Session, track_id: int):
 
 
 def get_Track_mine_title_all(db: Session, user_id: int):
-    tracks = db.query(Track).filter(Track.user_id == user_id).all()
+    tracks = db.query(Track).filter(Track.user_id == user_id,
+                                    Track.delete == False).all()
     tracks = sorted(tracks, key=lambda x: x.create_time, reverse=True)
     return [
         Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
@@ -84,7 +87,8 @@ def get_Track_mine_title_all(db: Session, user_id: int):
 
 
 def get_Track_share_title_all(db: Session, user_id: int):
-    tracks_multi = db.query(Track).filter(Track.user_id == user_id).all()
+    tracks_multi = db.query(Track).filter(Track.user_id == user_id,
+                                          Track.delete == False).all()
     tracks = []
     for track_solo in tracks_multi:
         track_share_all = db.query(Track).filter(Track.origin_track_id == track_solo.id).all()
@@ -156,7 +160,8 @@ def get_track_title_all(db: Session, user_id: int):
     tracks = []
     #seen_trackid =set() #중복 track_id 확인용
     # 현재 사용자의 track 추가
-    trackmine = db.query(Track).filter(Track.user_id == user_id).all()
+    trackmine = db.query(Track).filter(Track.user_id == user_id,
+                                       Track.delete == False).all()
 
     # trackmine의 데이터를 tracks에 추가, 중복 제거
     for track in trackmine:
@@ -241,3 +246,21 @@ def levenshtein_search(_track_name: str, db: Session) -> List[track_schema.Track
     res.sort(key=lambda x: x.score, reverse=True)
 
     return res
+
+
+def soft_delete_track(db:Session, track_id: int):
+    db_track = db.query(Track).filter(Track.id == track_id).first()
+    groups = db.query(Group).filter(Group.track_id == track_id).all()
+
+    for group in groups:
+        if group.start_day <= datetime.utcnow().date() <= group.end_day:
+            return 0
+
+    db_track.delete = True
+
+    routines = db.query(TrackRoutine).filter(TrackRoutine.track_id == track_id).all()
+    for routine in routines:
+        routine.delete = True
+
+    db.commit()
+    return 1

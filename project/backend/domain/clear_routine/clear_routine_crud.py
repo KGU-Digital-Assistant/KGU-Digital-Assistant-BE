@@ -170,6 +170,9 @@ def routine_list_up(db: Session):
     response_list = []
     for routine_date in routine_date_list:
         routine = db.query(TrackRoutine).filter(TrackRoutine.id == routine_date.id,).first()
+        if routine.delete:
+            continue
+
         track = db.query(Track).filter(Track.id == routine.track_id).first()
         user = db.query(User).filter(User.id == track.user_id).first()
 

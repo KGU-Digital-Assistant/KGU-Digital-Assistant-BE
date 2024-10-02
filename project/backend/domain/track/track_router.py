@@ -19,6 +19,21 @@ router = APIRouter(
 )
 
 
+@router.delete("/delete/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_track(track_id: int,
+                 db: Session = Depends(get_db),
+                 _current_user: User = Depends(get_current_user)):
+    track = track_crud.get_track_by_id(db, track_id)
+    if track is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if track.user_id != _current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    if track_crud.soft_delete_track(db, track_id) == 0:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="진행중인 트랙 존재")
+    return {"status": "ok"}
+
+
 @router.post("/create", response_model=track_schema.TrackResponse)
 def create_track(_current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
@@ -66,8 +81,8 @@ def update_track(track_id: int,
     track = track_crud.get_track_by_id(db, track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if track.user_id != _current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if track.delete:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track state is deleted")
 
     track_crud.track_update(db, track_id, _current_user, _track, cheating_cnt)
 
@@ -226,13 +241,18 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
      - 홈화면 page1 : 4, 5에도 사용할 수 있을 듯
     """
     ## 루틴반복단독데이터 스키마맞지않음 test필요
-    tracks = track_crud.get_track_by_track_id(db, track_id=track_id)
-    if tracks is None:
+    track = track_crud.get_track_by_track_id(db, track_id=track_id)
+    if track is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    username = user_crud.get_User_name(db, id=tracks.user_id)
+    if track.delete:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Track is deleted")
+
+    username = user_crud.get_User_name(db, id=track.user_id)
     today = datetime.utcnow().date() + timedelta(hours=9)
+
     #트랙을 공유한 횟수
-    count = tracks.share_count
+    count = track.share_count
+
     #그룹 정보여부
     group_one = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=today,
                                                               track_id=track_id)
@@ -245,41 +265,26 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
         group_startday = None
         group_finishday = None
         real_finishday = None
+
     # calorie 계산
     calorie = track_routine_crud.get_calorie_average(track_id=track_id, db=db)
-    # trackroutins = track_routine_crud.get_track_routine_by_track_id(db, track_id=track_id)
-    # repeat = []
-    # solo = []
-    # for trackroutin in trackroutins:
-    #     routin_data = track_routine_schema.TrackRoutin_id_title(
-    #         id=trackroutin.id,
-    #         title=trackroutin.title,
-    #         week=trackroutin.week,
-    #         time=trackroutin.time,
-    #         date=trackroutin.date,
-    #         repeat=trackroutin.repeat,
-    #     )
-    #     if trackroutin.repeat:
-    #         repeat.append(routin_data)
-    #     else:
-    #         solo.append(routin_data)
 
     return {
-        "track_name": tracks.name,
-        "icon": tracks.icon,
+        "track_name": track.name,
+        "icon": track.icon,
         "name": username,
-        "track_start_day": tracks.start_date,
-        "track_finish_day": tracks.finish_date,
+        "track_start_day": track.start_date,
+        "track_finish_day": track.finish_date,
         "group_start_day": group_startday,
         "group_finish_day": group_finishday,
         "real_finish_day": real_finishday,
-        "duration": tracks.duration,
+        "duration": track.duration,
         "caloire": calorie,
         "count": count,
-        "coffee": tracks.coffee,
-        "alcohol": tracks.alcohol,
-        "water": tracks.water,
-        "cheating_count": tracks.cheating_count,
+        "coffee": track.coffee,
+        "alcohol": track.alcohol,
+        "water": track.water,
+        "cheating_count": track.cheating_count,
     }
 
 #@router.post("/post/{user_id})", response_model=track_schema.Track_create_schema)##회원일경우
