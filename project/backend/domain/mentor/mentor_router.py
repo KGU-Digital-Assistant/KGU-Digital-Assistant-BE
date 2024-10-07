@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.group import group_crud
 from domain.meal_day import meal_day_crud
+from domain.meal_hour import meal_hour_crud
 from domain.mentor.mentor_crud import create_mentor, update_mentor_gym, mentor_delete, matching_mentor
 from domain.user.user_router import get_current_user
 from domain.mentor import mentor_schema, mentor_crud
@@ -232,10 +233,7 @@ def get_Mentors_User(daytime: str, current_user: User = Depends(get_current_user
         ranks = user_crud.get_User_rank(db,user.id)
         # User의 meal_hour 정보를 특정 날짜에 맞게 찾기.
         meal_day = meal_day_crud.get_MealDay_bydate(db, user_id=user.id, date=date)
-        meal_hours = db.query(MealHour).filter(
-                MealHour.user_id == user.id,
-                MealHour.daymeal_id == meal_day.id
-        ).all()
+        meal_hours = meal_hour_crud.get_mealhour_all_by_mealday_id(db,user_id=user.id,daymeal_id=meal_day.id)
 
         meal_names = [meal_hour.name for meal_hour in meal_hours]
 
