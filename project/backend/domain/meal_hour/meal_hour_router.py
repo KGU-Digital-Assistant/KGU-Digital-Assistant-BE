@@ -9,6 +9,7 @@ from sqlalchemy import or_,and_
 from starlette import status
 from database import get_db
 from domain.user import user_crud
+from domain.mentor import mentor_crud
 from domain.meal_hour import meal_hour_schema,meal_hour_crud
 from domain.meal_day import  meal_day_crud
 from domain.user.user_router import get_current_user
@@ -184,7 +185,7 @@ async def remove_meal(times:str,current_user: User = Depends(get_current_user), 
      if meal is None:
          raise HTTPException(status_code=404, detail="Meal not found")
 
-     daily_post=minus_daily_post(db,user_id=current_user.id,date=date,new_food=meal)
+     daily_post=meal_hour_crud.minus_daily_post(db,user_id=current_user.id,date=date,new_food=meal)
 
      blob = bucket.blob(meal.picture)
 
@@ -237,6 +238,7 @@ async def register_meal(times: str, hourminute: str,file_path: str = Form(...), 
 
     daymeal_id = db.query(MealDay.id).filter(MealDay.user_id==current_user.id,MealDay.date==date).first()
 
+    ## ai 제공 정보 확정후 수정예정
     new_food = MealHour(
         user_id=current_user.id,
         name=food_info_dict.get("name",""),
@@ -255,7 +257,7 @@ async def register_meal(times: str, hourminute: str,file_path: str = Form(...), 
         daymeal_id=daymeal_id
     )
 
-    daily_post = plus_daily_post(db, current_user.id, date, new_food)
+    daily_post = meal_hour_crud.plus_daily_post(db, current_user.id, date, new_food)
 
     mealtoday = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date)
     weekday_number = date.weekday()
@@ -302,18 +304,18 @@ async def register_meal(times: str, hourminute: str,file_path: str = Form(...), 
     db.commit()
     db.refresh(add_food)
 
-    username = user_crud.get_User_name(db,current_user.id)
-    mentor_id = db.query(User.mentor_id).filter(User.id==current_user.id).scalar()
+    username = current_user.name
+    mentor_id = current_user.mentor_id
     if mentor_id:
-        mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).scalar()
-        if mentor_user_id:
+        mentor_user_info=mentor_crud.get_mentor_by_id(db, mentor_id = mentor_id)
+        if mentor_user_info.user_id:
             data = {
                 "user_id": current_user.id,
                 "mentor_id" : mentor_id,
                 "message": f"{username}님이 f{time_part}을 등록했습니다."
             }
 
-            send_fcm_data_noti(mentor_user_id,"회원식사등록", data["message"],data)
+            send_fcm_data_noti(mentor_user_info.user_id,"회원식사등록", data["message"],data)
 
     return {"food": add_food, "daily_post": daily_post, "signed_url": signed_url}
 
@@ -352,55 +354,18 @@ def update_meal_gram(times: str, size: float = Form(...), current_user: User = D
     if mealgram is None:
         raise HTTPException(status_code=404, detail="MealHourly not found")
 
-    minus_daily_post(db,user_id=current_user.id,date=date,new_food=mealgram)
+    meal_hour_crud.minus_daily_post(db,user_id=current_user.id,date=date,new_food=mealgram)
 
     old_size = mealgram.size
     if old_size == 0:
         raise HTTPException(status_code=400, detail="Original size is zero, cannot update proportionally")
 
     percent = size/old_size
-    mealgram.carb *= percent
-    mealgram.protein *= percent
-    mealgram.fat *= percent
-    mealgram.calorie *= percent
-    mealgram.size = size
-    db.commit()
-    db.refresh(mealgram)
+    mealgram_fix = meal_hour_crud.update_mealgram(db, mealhour=mealgram,percent=percent,size=size)
 
-    plus_daily_post(db, user_id=current_user.id, date=date,new_food=mealgram)
+    meal_hour_crud.plus_daily_post(db, user_id=current_user.id, date=date,new_food=mealgram_fix   )
 
-    return mealgram
-
-def plus_daily_post(db: Session, user_id: int, date: date,new_food: MealHour):
-    daily_post = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
-
-    if daily_post:
-        # 기존 레코드 업데이트
-        daily_post.carb += new_food.carb
-        daily_post.protein += new_food.protein
-        daily_post.fat += new_food.fat
-        daily_post.nowcalorie += new_food.calorie
-
-    db.add(daily_post)
-    db.commit()
-    db.refresh(daily_post)
-    return daily_post
-
-def minus_daily_post(db: Session, user_id: int,date: date, new_food: MealHour):
-    daily_post = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
-    if daily_post is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    if daily_post:
-        # 기존 레코드 업데이트
-        daily_post.carb -= new_food.carb
-        daily_post.protein -= new_food.protein
-        daily_post.fat -= new_food.fat
-        daily_post.nowcalorie -= new_food.calorie
-
-    db.add(daily_post)
-    db.commit()
-    db.refresh(daily_post)
-    return daily_post
+    return mealgram_fix
 
 @router.get("/get/daymeal/{daytime}", response_model=List[meal_hour_schema.MealHour_daymeal_get_schema])
 def get_MealHour_date_all(daytime:str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -442,25 +407,18 @@ def update_MealHour_heart(user_id: int, times: str, db:Session=Depends(get_db)):
     User_Meal = meal_hour_crud.get_user_meal(db, user_id=user_id, daymeal_id=daymeal.id, mealtime=mealtime)
     if User_Meal is None:
         raise HTTPException(status_code=404, detail="User_Meal not found")
-    if User_Meal.heart == False:
-        User_Meal.heart =True
-    else:
-        User_Meal.heart = False
+    user_meal_fix = meal_hour_crud.update_heart(db, mealhour=User_Meal)
 
-    db.add(User_Meal)
-    db.commit()
-    db.refresh(User_Meal)
-
-    if User_Meal.heart == True:
-        mentor_id = db.query(User.mentor_id).filter(User.id==user_id).first()
-        if mentor_id:
-            mentor_user_id=db.query(Mentor.user_id).filter(Mentor.id==mentor_id).first()
-            if mentor_user_id:
+    if user_meal_fix.heart == True:
+        user_info = user_crud.get_user(db, user_id=user_id)
+        if user_info.mentor_id:
+            mentor_info=mentor_crud.get_mentor_by_id(db, mentor_id=user_info.mentor_id)
+            if mentor_info.user_id:
                 mealtime = times[10:]
-                mentor_name=user_crud.get_User_name(db,mentor_user_id)
+                mentor_name=user_crud.get_User_name(db,mentor_info.user_id)
                 send_fcm_notification(user_id,"하트등록",f"{mentor_name}님이 {mealtime}식단을 칭찬했어요")
 
-    return User_Meal
+    return user_meal_fix
 
 # @router.get("/get/daymeal_time/{user_id}/{daytime}", response_model=List[meal_hour_schema.MealHour_daymeal_time_get_schema])
 # def get_MealHour_date_all(user_id: int, daytime:str, db: Session = Depends(get_db)):
@@ -532,12 +490,7 @@ def update_Mealhour_track_goal_user(times:str, current_user: User = Depends(get_
     mealhour= meal_hour_crud.get_user_meal(db, user_id=current_user.id, daymeal_id=daymeal.id, mealtime=mealtime)
     if mealhour is None:
         raise HTTPException(status_code=404, detail="MealHour not found")
-    if mealhour.track_goal == True:
-        mealhour.track_goal = False
-    else:
-        mealhour.track_goal = True
-    db.commit()
-    db.refresh(mealhour)
+    meal_hour_crud.update_track_goal(db,mealhour=mealhour)
     return {"detail" : "track_goal updated successfully"}
 
 @router.patch("/update/track/formentor/{user_id}/{times}", status_code=status.HTTP_204_NO_CONTENT)
@@ -559,10 +512,5 @@ def update_Mealhour_track_goal_mentor(user_id:int, times:str, db:Session=Depends
     mealhour= meal_hour_crud.get_user_meal(db, user_id=user_id, daymeal_id=daymeal.id, mealtime=mealtime)
     if mealhour is None:
         raise HTTPException(status_code=404, detail="MealHour not found")
-    if mealhour.track_goal == True:
-        mealhour.track_goal = False
-    else:
-        mealhour.track_goal = True
-    db.commit()
-    db.refresh(mealhour)
+    meal_hour_crud.update_track_goal(db,mealhour=mealhour)
     return {"detail" : "track_goal updated successfully"}

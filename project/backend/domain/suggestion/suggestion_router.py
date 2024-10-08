@@ -26,8 +26,7 @@ async def remove_suggest(suggest_id: int,
         raise HTTPException(status_code=404, detail="suggestion not found")
     if suggest.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="you can't remove this suggestion")
-    db.delete(suggest)
-    db.commit()
+    suggestion_crud.delete_suggest(db,suggest=suggest)
     return {"detail": "Suggest deleted successfully"}
 
 
@@ -44,11 +43,8 @@ async def update_suggest(suggest_id: int, title: str = Form(...), content: str =
         raise HTTPException(status_code=404, detail="suggestion not found")
     if current_user.id != suggest.user_id:
         raise HTTPException(status_code=403, detail="you are not the owner of this suggestion")
-    suggest.title = title
-    suggest.content = content
-    db.commit()
-    db.refresh(suggest)
-    return suggest
+    suggest_fix = suggestion_crud.update_suggest(db, suggest=suggest,title=title,content=content)
+    return suggest_fix
 
 
 @router.get("/get/{suggest_id}/text", response_model=suggestion_schema.SuggestionContentSchema)
@@ -71,15 +67,7 @@ def post_Suggest(current_user: User = Depends(get_current_user), title: str = Fo
     개발자 의견제출  : 27page 3번
      - 입력예시 :  title = "치킨", content = "치킨너무비싸"
     """
-    new_suggest = Suggestion(
-        user_id=current_user.id,
-        title=title,
-        content=content,
-        date=datetime.utcnow() + timedelta(hours=9)
-    )
-    db.add(new_suggest)
-    db.commit()
-    db.refresh(new_suggest)
+    new_suggest = suggestion_crud.post_suggest(db,user_id=current_user.id,title=title,content=content)
     return new_suggest
 
 

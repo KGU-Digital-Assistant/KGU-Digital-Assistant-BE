@@ -290,7 +290,6 @@ def get_TrackRoutine_track_title_calorie_user(time: str, current_user: User = De
         date = datetime.strptime(date_part, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    mealtime = track_routine_crud.time_parse(time_part)
 
     mealtoday = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date)
     if mealtoday is None:
@@ -306,21 +305,17 @@ def get_TrackRoutine_track_title_calorie_user(time: str, current_user: User = De
         raise HTTPException(status_code=404, detail="Group not found")
 
     group, cheating_count, user_id2, flag, finish_date =group_info
-    days = date - group.start_day
+    days = (date - group.start_day).days + 1
 
     combine_result=[]
-    trackroutines = db.query(TrackRoutine).filter(
-            TrackRoutine.track_id == mealtoday.track_id, TrackRoutine.delete == False
-    ).all()
+    trackroutines = track_routine_crud.get_trackroutine_all_by_track_id_delete_false(db,track_id=mealtoday.track_id)
 
     if not trackroutines:
         raise HTTPException(status_code=404, detail="No Use TrackRoutine today")
     for trackroutine in trackroutines:
-        trackroutinedates = db.query(TrackRoutineDate).filter(
-            and_(TrackRoutineDate.routine_id==trackroutine.id,
-                 TrackRoutineDate.weekday==weekday_number,
-                 TrackRoutineDate.date==days)
-        ).all()
+        trackroutinedates = track_routine_crud.get_trackroutinedate_all_by_routine_id_weekday_date(db, routine_id=trackroutine.id,
+                                                                                                   weekday=weekday_number,
+                                                                                                   date=days)
         for trackroutinedate in trackroutinedates:
             result = {"title":trackroutine.title,"calorie":trackroutine.calorie}
             combine_result.append(result)

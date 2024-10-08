@@ -3,6 +3,7 @@ from datetime import datetime, date
 import models
 from domain.meal_hour.meal_hour_schema import MealHour_gram_update_schema,MealHour_daymeal_get_schema, MealHour_daymeal_get_picture_schema,MealHour_daymeal_time_get_schema
 from models import MealDay, MealHour, MealTime
+from domain.meal_day import meal_day_crud
 from domain.meal_day.meal_day_crud import get_MealDay_bydate
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -89,3 +90,66 @@ def time_parse(time: str):
         return MealTime.DINNER
     if time == "간식":
         return MealTime.SNACK
+
+def get_mealhour_all_by_mealday_id(db: Session, user_id: int, daymeal_id: int):
+    meal_hours = db.query(MealHour).filter(
+        MealHour.user_id == user_id,
+        MealHour.daymeal_id == daymeal_id
+    ).all()
+    return meal_hours
+
+def update_mealgram(db: Session, mealhour: MealHour, percent: float, size: float):
+    mealhour.carb *= percent
+    mealhour.protein *= percent
+    mealhour.fat *= percent
+    mealhour.calorie *= percent
+    mealhour.size = size
+    db.commit()
+    return mealhour
+
+def plus_daily_post(db: Session, user_id: int, date: date,new_food: MealHour):
+    daily_post = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+
+    if daily_post:
+        # 기존 레코드 업데이트
+        daily_post.carb += new_food.carb
+        daily_post.protein += new_food.protein
+        daily_post.fat += new_food.fat
+        daily_post.nowcalorie += new_food.calorie
+
+    db.add(daily_post)
+    db.commit()
+    db.refresh(daily_post)
+    return daily_post
+
+def minus_daily_post(db: Session, user_id: int,date: date, new_food: MealHour):
+    daily_post = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
+    if daily_post is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if daily_post:
+        # 기존 레코드 업데이트
+        daily_post.carb -= new_food.carb
+        daily_post.protein -= new_food.protein
+        daily_post.fat -= new_food.fat
+        daily_post.nowcalorie -= new_food.calorie
+
+    db.add(daily_post)
+    db.commit()
+    db.refresh(daily_post)
+    return daily_post
+
+def update_heart(db:Session, mealhour: MealHour):
+    if mealhour.heart == False:
+        mealhour.heart = True
+    else:
+        mealhour.heart = False
+    db.add(mealhour)
+    db.commit()
+    return mealhour
+
+def update_track_goal(db:Session,mealhour:MealHour):
+    if mealhour.track_goal == True:
+        mealhour.track_goal = False
+    else:
+        mealhour.track_goal = True
+    db.commit()

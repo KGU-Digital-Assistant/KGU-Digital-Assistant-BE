@@ -474,3 +474,16 @@ def update_routine_and_date(routine_date_id: int, _track_routine: track_routine_
 
     db.commit()
     return db_routine_date, db_routine
+
+def get_trackroutinedate_all_by_routine_id_weekday_date(db:Session, routine_id: int, weekday: int, date: int):
+    trackroutindates = db.query(TrackRoutineDate).filter(
+            and_(TrackRoutineDate.routine_id==routine_id,
+                 TrackRoutineDate.weekday==weekday,
+                 TrackRoutineDate.date==date)
+        ).all()
+    return trackroutindates
+
+def get_trackroutine_all_by_track_id_delete_false(db:Session, track_id: int):
+    db.query(TrackRoutine).filter(
+        TrackRoutine.track_id == track_id, TrackRoutine.delete == False
+    ).all()

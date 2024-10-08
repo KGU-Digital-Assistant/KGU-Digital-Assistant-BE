@@ -2,16 +2,17 @@ import datetime
 
 from fastapi import APIRouter,  Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_,and_, update
+from sqlalchemy import and_
 from typing import List
 from starlette import status
 from database import get_db
 from domain.meal_day import meal_day_schema, meal_day_crud
 from domain.group import group_crud
 from domain.meal_hour import meal_hour_crud
+from domain.track_routine import track_routine_crud
 from domain.user import user_crud
 from domain.user.user_router import get_current_user
-from models import MealDay, MealHour, User,TrackRoutine, TrackRoutineDate, Participation
+from models import MealDay, MealHour, User,TrackRoutine, TrackRoutineDate
 from datetime import datetime,timedelta
 from firebase_config import bucket
 from calendar import monthrange
@@ -117,27 +118,15 @@ async def update_MealDay_date_cheating(daytime: str,current_user: User = Depends
         if cheating_count is None or cheating_count <= 0:
             raise HTTPException(status_code=403, detail="cheating count = 0")
 
-        # SQLAlchemy Core를 사용하여 cheating_count 업데이트
-        stmt = update(Participation).where(
-            Participation.c.group_id == group.id,
-            Participation.c.user_id == current_user.id
-        ).values(cheating_count=Participation.c.cheating_count - 1)
-        db.execute(stmt)
-        db.commit()
+        ##참여 Tbl의 cheating count를 1 감소
+        stmt = meal_day_crud.minus_cheating_count_in_participation(db, group_id=group.id, user_id=current_user.id)
+        ## cheating이 1이면 0으로, 0이면 1로 변경
+        meal_day_crud.update_mealday_cheating(db, mealday = mealcheating)
 
-        mealcheating.cheating = 1
-        db.commit()
-        db.refresh(mealcheating)
         return {"detail": "cheating updated successfully"}
     else:
-        if mealcheating.cheating == 1:
-            mealcheating.cheating = 0
-            db.commit()
-            db.refresh(mealcheating)
-        else:
-            mealcheating.cheating = 1
-            db.commit()
-            db.refresh(mealcheating)
+        ## cheating이 1이면 0으로, 0이면 1로 변경
+        meal_day_crud.update_mealday_cheating(db, mealday = mealcheating)
         return {"detail": "cheating updated successfully"}
 
 
@@ -207,28 +196,7 @@ def post_MealDay_date(daytime: str, current_user: User = Depends(get_current_use
     if meal:
         return
     else:
-        new_meal = MealDay(
-            user_id=current_user.id,
-            water=0.0,
-            coffee=0.0,
-            alcohol=0.0,
-            carb=0.0,
-            protein=0.0,
-            fat=0.0,
-            cheating=0,
-            goalcalorie=0.0,
-            nowcalorie=0.0,
-            burncalorie=0.0,
-            gb_carb = 300.0,
-            gb_protein = 60.0,
-            gb_fat = 65.0,
-            weight = 0.0,
-            date = date,
-            track_id = None ## 트랙 user사용중일때 안할때 이거 변경해야할거같은데
-        )
-        db.add(new_meal)
-        db.commit()
-        db.refresh(new_meal)
+        meal_day_crud.create_meal_day(db, user_id = current_user.id, date = date)
 
 @router.post("/post/meal_day/{year}/{month}", status_code=status.HTTP_204_NO_CONTENT)
 def post_MealDay_month(year: int, month: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -246,32 +214,12 @@ def post_MealDay_month(year: int, month: int, current_user: User = Depends(get_c
     # 해당 월의 모든 날짜에 대해 반복합니다.
     date_iter = first_day
     while date_iter <= last_day:
-        meal = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date_iter)
+        meal = meal_day_crud.get_MealDay_bydate(db, user_id = current_user.id, date=date_iter)
         if not meal:
-            new_meal = MealDay(
-                user_id=current_user.id,
-                water=0.0,
-                coffee=0.0,
-                alcohol=0.0,
-                carb=0.0,
-                protein=0.0,
-                fat=0.0,
-                cheating=0,
-                goalcalorie=0.0,
-                nowcalorie=0.0,
-                burncalorie=0.0,
-                gb_carb=300.0,
-                gb_protein=60.0,
-                gb_fat=65.0,
-                weight = 0.0,
-                date=date_iter,
-                track_id=None  ## 트랙 user사용중일때 안할때 이거 변경해야할거같은데
-            )
-            db.add(new_meal)
+            meal_day_crud.create_meal_day(db, user_id = current_user.id, date = date_iter)
         # 다음 날짜로 이동
         date_iter += timedelta(days=1)
 
-    db.commit()
 
 @router.get("/get/calorie/{daytime}", response_model=meal_day_schema.MealDay_calorie_get_schema)
 def get_MealDay_date_calorie(daytime: str ,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -302,15 +250,12 @@ def get_Track_Mealhour(daytime: str, current_user: User = Depends(get_current_us
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
 
-    meal_today = db.query(MealDay).filter(MealDay.user_id == current_user.id, MealDay.date == date).first()
+    meal_today = meal_day_crud.get_MealDay_bydate(db, user_id = current_user.id, date = date)
     if meal_today is None or meal_today.track_id is None:
         raise HTTPException(status_code=404, detail="Track not using")
 
     result = []
-    meal_hours = db.query(MealHour).filter(
-        MealHour.user_id == current_user.id,
-        MealHour.daymeal_id == meal_today.id
-    ).all()
+    meal_hours = meal_hour_crud.get_mealhour_all_by_mealday_id(db, user_id = current_user.id, daymeal_id = meal_today.id)
 
     for meal in meal_hours:
         try:
@@ -343,16 +288,13 @@ def get_Track_Mealhour(id: int, daytime: str, db: Session = Depends(get_db)):
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
+    meal_today = meal_day_crud.get_MealDay_bydate(db, user_id = id, date = date)
 
-    meal_today = db.query(MealDay).filter(MealDay.user_id == id, MealDay.date == date).first()
     if meal_today is None or meal_today.track_id is None:
         raise HTTPException(status_code=404, detail="Track not using")
 
     result = []
-    meal_hours = db.query(MealHour).filter(
-        MealHour.user_id == id,
-        MealHour.daymeal_id == meal_today.id
-    ).all()
+    meal_hours = meal_hour_crud.get_mealhour_all_by_mealday_id(db, user_id=id, daymeal_id=meal_today.id)
 
     for meal in meal_hours:
         try:
@@ -397,21 +339,14 @@ def get_MealDay_dday_goal_real(daytime: str, current_user: User = Depends(get_cu
     if group_info is None:
         raise HTTPException(status_code=404, detail="Group not found")
     group, cheating_count, user_id2, flag, finish_date =group_info
-    solodate = date - group.start_day
-    days = str(solodate.days + 1)
-
     dday = (date - group.start_day).days + 1
-    trackroutines = db.query(TrackRoutine).filter(
-        TrackRoutine.track == mealday.track_id
-    ).all()
-
+    ## 트랙id를 가지고 있는 트랙루틴 전체 조회
+    trackroutines = track_routine_crud.get_track_routine_by_track_id(db, track_id=mealday.track_id)
     goal_time=[]
     for trackroutine in trackroutines:
-        trackroutinedates = db.query(TrackRoutineDate).filter(
-            and_(TrackRoutineDate.routine_id==trackroutine.id,
-                 TrackRoutineDate.weekday==weekday_number,
-                 TrackRoutineDate.date==days)
-        ).all()
+        trackroutinedates = track_routine_crud.get_trackroutinedate_all_by_routine_id_weekday_date(db, routine_id=trackroutine.id,
+                                                                                                   weekday=weekday_number,
+                                                                                                   date=dday)
         for trackroutinedate in trackroutinedates:
             info = {"time": trackroutinedate.time, "title":trackroutine.title}
             goal_time.append(info)
@@ -460,11 +395,9 @@ def get_today_Mealhour(daytime: str, current_user: User = Depends(get_current_us
         raise HTTPException(status_code=404, detail="Mealday not posting")
 
     result = []
-    meal_hours = db.query(MealHour).filter(
-        MealHour.user_id == current_user.id,
-        MealHour.daymeal_id == meal_today.id
-    ).all()
 
+    meal_hours = meal_hour_crud.get_mealhour_all_by_mealday_id(db, user_id=current_user.id,
+                                                               daymeal_id=meal_today.id)
     for meal in meal_hours:
         try:
             # 서명된 URL 생성 (URL은 1시간 동안 유효)
@@ -497,10 +430,7 @@ def update_burncaloire(daytime: str, burncalorie: float, current_user: User = De
     if mealtoday is None:
         raise HTTPException(status_code=404, detail="MealDaily not found")
 
-    mealtoday.burncalorie=burncalorie
-    db.add(mealtoday)
-    db.commit()
-    db.refresh(mealtoday)
+    meal_day_crud.update_burncalorie(db, mealday=mealtoday, burncalorie=burncalorie)
 
     return {"detail": "burncalorie updated successfully"}
 
@@ -519,10 +449,7 @@ def update_weight(daytime: str, weight: float, current_user: User = Depends(get_
     if mealtoday is None:
         raise HTTPException(status_code=404, detail="MealDaily not found")
 
-    mealtoday.weight = weight
-    db.add(mealtoday)
-    db.commit()
-    db.refresh(mealtoday)
+    meal_day_crud.update_weight(db, mealday=mealtoday,weight=weight)
 
     return {"detail": "weight updated successfully"}
 
