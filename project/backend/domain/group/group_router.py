@@ -138,8 +138,9 @@ def invite_group(_receive_user_id: int, _group_id: int,
                  current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     try:
-        recv_user = db.query(User).filter(User.id == _receive_user_id).one()
-        group = db.query(Group).filter(Group.id == _group_id).one()
+
+        recv_user = user_crud.get_user_by_id(db, _receive_user_id)
+        group = group_crud.get_group_by_id(db, _group_id)
 
         if group.status == GroupStatus.STARTED:
             raise HTTPException(

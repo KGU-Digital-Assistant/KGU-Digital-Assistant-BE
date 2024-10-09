@@ -690,7 +690,7 @@ async def register_token(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Token and user_id required")
 
     try:
-        user = db.query(User).filter(User.id == user_id).one()
+        user = user_crud.get_user_by_id(db, id=user_id)
         user.fcm_token = token
         db.commit()
         return {"message": "Token registered successfully"}
