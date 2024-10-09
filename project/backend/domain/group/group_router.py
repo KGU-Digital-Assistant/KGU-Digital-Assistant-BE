@@ -31,12 +31,13 @@ router = APIRouter(
 # fcm_api_key = config('FIREBASE_FCM_API_KEY')
 # push_service = FCMNotification(api_key=fcm_api_key)
 
-
-def update_group_status(db: Session):
+@router.get("/test")
+def update_group_status(db: Session = Depends(get_db)):
     """
     매일 끝난 그룹이 있는지 확인
     """
     group_crud.is_finished(db=db)
+    return {"status": "ok"}
 
 
 # 매일 한 번씩 실행.
@@ -93,8 +94,6 @@ def get_group(group_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/get/{group_id}", status_code=status.HTTP_200_OK)
-
-
 @router.patch("/update/date/{group_id}")
 def update_track(group_id: int, date: group_schema.GroupDate, db: Session = Depends(get_db)):
     """
@@ -103,34 +102,34 @@ def update_track(group_id: int, date: group_schema.GroupDate, db: Session = Depe
     return group_crud.update_group_date(db=db, group_id=group_id, date=date)
 
 
-@router.post("/invite-me", status_code=status.HTTP_204_NO_CONTENT)
-def invite_me(group_id: int,
-              current_user: User = Depends(user_router.get_current_user),
-              db: Session = Depends(get_db)):
-    """
-    본인도 트랙에 참여
-    """
-    group = group_crud.get_group_by_id(db=db, group_id=group_id)
-    if not group:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Group does not exist",
-        )
-
-    if group.status == GroupStatus.STARTED:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="트랙이 진행중 입니다."
-        )
-
-    if group.status == GroupStatus.TERMINATED:
-        track = track_crud.get_track_by_id(track_id=group.track_id, db=db)
-        group = group_crud.create_group(db, track, current_user.id)
-
-    group.users.append(current_user)
-    current_user.cur_group_id = group.id
-    db.commit()
-    return {"status": "ok"}
+# @router.post("/invite-me", status_code=status.HTTP_204_NO_CONTENT)
+# def invite_me(group_id: int,
+#               current_user: User = Depends(user_router.get_current_user),
+#               db: Session = Depends(get_db)):
+#     """
+#     본인도 트랙에 참여
+#     """
+#     group = group_crud.get_group_by_id(db=db, group_id=group_id)
+#     if not group:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Group does not exist",
+#         )
+#
+#     if group.status == GroupStatus.STARTED:
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="트랙이 진행중 입니다."
+#         )
+#
+#     if group.status == GroupStatus.TERMINATED:
+#         track = track_crud.get_track_by_id(track_id=group.track_id, db=db)
+#         group = group_crud.create_group(db, track, current_user.id)
+#
+#     group.users.append(current_user)
+#     current_user.cur_group_id = group.id
+#     db.commit()
+#     return {"status": "ok"}
 
 
 # 초대
@@ -139,8 +138,9 @@ def invite_group(_receive_user_id: int, _group_id: int,
                  current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     try:
-        recv_user = db.query(User).filter(User.id == _receive_user_id).one()
-        group = db.query(Group).filter(Group.id == _group_id).one()
+
+        recv_user = user_crud.get_user_by_id(db, _receive_user_id)
+        group = group_crud.get_group_by_id(db, _group_id)
 
         if group.status == GroupStatus.STARTED:
             raise HTTPException(
@@ -219,13 +219,30 @@ def accept_invitation(group_id: int,
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.patch("/exit/group/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
+def exit_group(daytime: str, current_user: User = Depends(user_router.get_current_user),
+               db: Session = Depends(get_db)):
+    """
+    현재 참여중인 그룹 탈주하기
+    입력 : daytiem : 2024-07-01(종료시점날짜) 해당일에 탈퇴므로 해당일부터 기존기간까지 목표칼로리등 변경
+    """
+    try:
+        dates = datetime.strptime(daytime, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
+    if dates < date.today():
+        raise HTTPException(status_code=404, detail="No Input Old date")
+    group_crud.exit_group(db=db, user_id=current_user.id, date=dates, group_id=current_user.cur_group_id)
+
+
 #########################################
 
-@router.get("/get/{user_id}/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
-def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@router.get("/get/{daytime}/name_dday", response_model=group_schema.Group_name_dday_schema)
+def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_current_user),
+                               db: Session = Depends(get_db)):
     """
     해당일 Track 사용시 Track.name, D-day 조회 : 9page 2번
-     - 입력예시 : user_id = 1, time = 2024-06-01
+     - 입력예시 : time = 2024-06-01
      - 출력 : Track.name, Dday
     """
     try:
@@ -236,48 +253,57 @@ def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_cu
     if meal_day is None:
         raise HTTPException(status_code=404, detail="MealDay not found")
     track_name = None
+    track_id = None
     dday = None
+    using_track = None
     if meal_day and meal_day.track_id:
-        using_track = track_crud.get_Track_bytrack_id(db, track_id=meal_day.track_id)
+        using_track = track_crud.get_track_by_track_id(db, track_id=meal_day.track_id)
         if using_track:
             track_name = using_track.name
-        group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=date, track_id=meal_day.track_id)
+            track_id = using_track.track_id
+        group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=date,
+                                                                   track_id=meal_day.track_id)
         if group_info and group_info is not None:
-            group, cheating_count, user_id2, flag, finish_date =group_info
+            group, cheating_count, user_id2, flag, finish_date = group_info
             dday = (date - group.start_day).days + 1
-    return {"name": track_name, "dday":dday} ##name, d-day 열출력
+    return {"name": track_name, "dday": dday, "track_id": track_id}  ##name, d-day 열출력
 
-@router.get("/get/{user_id}/{track_id}/{daytime}/name", response_model=group_schema.Group_get_track_name_schema)
-def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: User = Depends(get_current_user), db:Session = Depends(get_db)):
+
+@router.get("/get/{track_id}/{daytime}/name", response_model=group_schema.Group_get_track_name_schema)
+def get_track_name_before_startGroup(track_id: int, daytime: str, current_user: User = Depends(get_current_user),
+                                     db: Session = Depends(get_db)):
     """
     트랙 시작전 사용중이였던 Track.name(old)(사용중~사용예정트랙들) / Track.name(new) 조회 : 23page 1-1번, 23page 1-2번
-     - 입력예시 : user_id=1, daytime = 2024-06-01, track_id = 14
+     - 입력예시 : daytime = 2024-06-01, track_id = 14
      - 출력 : Track.name(old), Track.name(new)
     """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
-    Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
+    Track_willuse = track_crud.get_track_by_track_id(db, track_id=track_id)
     if Track_willuse is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    finish_date=date +timedelta(days=Track_willuse.duration)
-    trackids = group_crud.get_track_id_all_in_date(db,start_date=date,finish_date=finish_date,user_id=current_user.id)
-    name_list=[]
-    seen_trackname =set() #중복 track_id 확인용
+    finish_date = date + timedelta(days=Track_willuse.duration)
+    trackids = group_crud.get_track_id_all_in_date(db, start_date=date, finish_date=finish_date,
+                                                   user_id=current_user.id)
+    name_list = []
+    seen_trackname = set()  #중복 track_id 확인용
     for track_id_iter in trackids:
-        track_info=track_crud.get_Track_bytrack_id(db,track_id=track_id_iter)
+        track_info = track_crud.get_track_by_track_id(db, track_id=track_id_iter)
         if track_info.name not in seen_trackname:
             name_list.append(track_info.name)
             seen_trackname.add(track_info.name)
-    tracknewrow = track_crud.get_Track_bytrack_id(db,track_id=track_id)
+    tracknewrow = track_crud.get_track_by_track_id(db, track_id=track_id)
     if tracknewrow and tracknewrow.name:
         tracknew = tracknewrow.name
     else:
         tracknew = None
 
-    return {"trackold" : name_list, "tracknew" : tracknew}
+    return {"trackold": name_list, "tracknew": tracknew}
     ## 현재사용중인것만 이름표시할 경우
+
+
 #    date = datetime.utcnow().date() + timedelta(hours=9)
 #    mealtoday = meal_day_crud.get_MealDay_bydate(db,user_id=user_id,date=date)
 #    if mealtoday and mealtoday.track_id:
@@ -293,43 +319,63 @@ def get_track_name_before_startGroup(track_id: int, daytime: str,current_user: U
 #    return {"trackold" : trackold, "tracknew" : tracknew}
 
 
-@router.post("/start_track/{user_id}/{track_id}/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
-def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User = Depends(get_current_user),db: Session= Depends(get_db)):
+@router.post("/start_track/{track_id}/{daytime}", status_code=status.HTTP_204_NO_CONTENT)
+def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User = Depends(get_current_user),
+                                 db: Session = Depends(get_db)):
     """
     트랙 시작하기 (기존 Mealday의 track_id, goal_calorie 변경 -> 기존 group 종료일 변경 -> 새로운 Group의 시작종료일세팅 ->Mealday 정보수정
-     - 입력예시 : user_id = 1, track_id = 14
+     - 입력예시 : track_id = 14, daytime : 2024-09-01
      - 출력 : Track.name, User.nickname
        코드 순서 = mealday tbl 없는경우 생성 -> 시작할 트랙 기간 start~finish 날짜 사이에 예정된 트랙있는 경우(but 트
         해당 트랙들에 정해진 mealday값들 초기화 및 참여tbl flag, 종료일 변경 -> 새 group tbl 시작일 종료일 설정
          -> 새 참여 tbl flag, 종료일 설정 -> mealday에 new_track정보 입력
       트랙시작시점에 group의 state = started, participtaion의 flag는 finish_Date 도달시 false로 변경, 모두 false가 돼면 해당일에 group state = terminated 로 변경
+
+    - 진행중인 트랙이 있을 경우 409 에러 띄움.
+    - /exit/group/{daytime} 그룹 탈주하기 api 실행 후 하면 됨.
     """
     try:
         date = datetime.strptime(daytime, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format")
+    if date.weekday() != 0:
+        raise HTTPException(status_code=401, detail="Start only on Monday")
 
-    Track_willuse = track_crud.get_Track_bytrack_id(db,track_id=track_id)
-    if Track_willuse is None:
+    if current_user.cur_group_id:
+        group = group_crud.get_group_by_id(db, current_user.cur_group_id)
+        if group.status == "STARTED":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="이미 진행중인 트랙이 있음"
+            )
+
+    track_will_use = track_crud.get_track_by_track_id(db, track_id=track_id)
+    if track_will_use is None:
         raise HTTPException(status_code=404, detail="Track not found")
-    Group_willuse = group_crud.get_Group_bytrack_id_state_ready(db, track_id=track_id)
-    if Group_willuse is None:
-        db_groupnew = Group(
-            track_id = track_id,
-            user_id = Track_willuse.user_id,
-            name = meal_hour_crud.create_file_name(user_id=current_user.id),
-            start_day = None,
-            finish_day = None,
-            state = 'ready'
-        )
-        db.add(db_groupnew)
-        db.commit()
-        db.refresh(db_groupnew)
-        Group_willuse = db_groupnew
-    if Track_willuse.alone == True:
-        group_crud.add_participation(db,user_id=current_user.id,group_id=Group_willuse.id,cheating_count=Track_willuse.cheating_count)
-        group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id,duration=Track_willuse.duration)
-    if Track_willuse.alone == False:
-        group_crud.update_group_mealday_pushing_start(db,user_id=current_user.id, track_id=track_id, date=date, group_id= Group_willuse.id, duration=Track_willuse.duration)
-    nickname = user_crud.get_User_nickname(db,id=current_user.id)
-    return {"trackname" : Track_willuse.name, "nickname" : nickname}
+
+    group_will_use = group_crud.get_group_bytrack_id_state_ready(db, track_id=track_id)
+    if group_will_use is None:
+        group_will_use = group_crud.create_group(db, track_will_use, current_user.id)
+
+    if track_will_use.alone == True:  # 개인 트랙일 경우
+        group_crud.add_participation(db, user_id=current_user.id, group_id=group_will_use.id,
+                                     cheating_count=track_will_use.cheating_count)
+        group_crud.update_group_mealday_pushing_start(db, user_id=current_user.id, track_id=track_id, date=date,
+                                                      group_id=group_will_use.id, duration=track_will_use.duration)
+        current_user.cur_group_id = group_will_use.id
+
+    if track_will_use.alone == False:  # 개인 트랙이 아닐 경우
+        group_crud.update_group_mealday_pushing_start(db, user_id=current_user.id, track_id=track_id, date=date,
+                                                      group_id=group_will_use.id, duration=track_will_use.duration)
+
+    nickname = user_crud.get_User_nickname(db, id=current_user.id)
+    return {"track_name": track_will_use.name, "nickname": nickname, "group_id": group_will_use.id}
+
+
+@router.delete("/start/cancel", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_track(group_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    group = group_crud.get_group_by_id(db, group_id)
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    group_crud.update_group_mealday_pushing_stop(db, user_id=current_user.id, group=group)
+    group_crud.delete_start(group, current_user, db)

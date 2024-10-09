@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.group import group_crud
 from domain.meal_day import meal_day_crud
+from domain.meal_hour import meal_hour_crud
 from domain.mentor.mentor_crud import create_mentor, update_mentor_gym, mentor_delete, matching_mentor
 from domain.user.user_router import get_current_user
 from domain.mentor import mentor_schema, mentor_crud
@@ -22,6 +23,20 @@ router = APIRouter(
 def get_current_mentor(_user_id: int, db: Session = Depends(get_db)):
     return user_router.get_current_user()
 
+@router.get("/get")
+async def get_mentor(mentor_id: int, db: Session = Depends(get_db)):
+    """
+    mentor 정보 출력
+    """
+    mentor = mentor_crud.get_mentor_by_id(db,mentor_id)
+    if not mentor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mentor not found",
+        )
+    return mentor
+
+
 # 일반 회원 -> 트레이너가 될 때
 @router.post("/create", status_code=201)
 async def mentor_create(_mentor_create: mentor_schema.MentorCreate,
@@ -34,7 +49,6 @@ async def mentor_create(_mentor_create: mentor_schema.MentorCreate,
         )
     create_mentor(mentor_create=_mentor_create, _user_id=_current_user.id, db=db)
     return {"status": "ok"}
-
 
 @router.post("/add/user", status_code=201)
 def invite_user_to_mentor(_mentee: mentor_schema.MenteeSchema,
@@ -120,8 +134,6 @@ def delete_mentor(_current_user: User = Depends(user_router.get_current_user),
         detail="User Not Found",
     )
 
-
-
 @router.patch("/gym/update", status_code=201)
 def gym_update(_mentor_gym: mentor_schema.MentorGym,
                _current_user: User = Depends(user_router.get_current_user),
@@ -140,6 +152,22 @@ def gym_update(_mentor_gym: mentor_schema.MentorGym,
     return {"status": "ok"}
 
 
+@router.get("/mentee/list")
+def list_mentees(
+        _current_user: User = Depends(user_router.get_current_user),
+        db: Session = Depends(get_db)):
+    """
+    회원들  : 15page 1번 멘토가 회원찾는거
+     - 입력예시 : Mentor.user_id = 1, User.name
+     - 출력 : 회원목록[User.id, User.name]
+    """
+    users = mentor_crud.get_mentee_list_by_mentor_id(db, mentor_id=_current_user.id)
+    if users is None:
+        raise HTTPException(status_code=404, detail="Users not found")
+    users_list = [{"id": user.id, "name": user.name} for user in users]
+    return users_list
+
+
 @router.delete("/delete", status_code=204)
 def delete_mentor(cur_user: User = Depends(user_router.get_current_user), db: Session = Depends(get_db)):
     if mentor_delete(cur_user.id, db):
@@ -153,26 +181,26 @@ def delete_mentor(cur_user: User = Depends(user_router.get_current_user), db: Se
 
 @router.get("/get/{id}", response_model=mentor_schema.Mentor_schema)
 def get_id_Mentor(id: int, db: Session = Depends(get_db)):
-    Mentors = mentor_crud.get_mentor(db, user_id=id)
+    Mentors = mentor_crud.get_Mentor(db,user_id=id)
     if Mentors is None:
         raise HTTPException(status_code=404, detail="mentor not found")
     return Mentors ##전체 열 출력
 
-@router.patch("/addUser/{id}", response_model=mentor_schema.Mentor_add_User_schema) ## mentor의 user.id 입력
-def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db)):
-    Mentors=mentor_crud.get_mentor(db, user_id=id)
-    if Mentors is None:
-        raise HTTPException(status_code=404, detail="mentor not found")
-    Users =user_crud.get_User_byemail(db,mail=email)
-    if Users is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    Users.mentor_id = Mentors.id
-    db.add(Users)
-    db.commit()
-    db.refresh(Users)
-    return Users
+# @router.patch("/addUser/{id}", response_model=mentor_schema.Mentor_add_User_schema) ## mentor의 user.id 입력
+# def add_Mentor_to_User(id: int, email: str=Form(...), db: Session=Depends(get_db)):
+#     Mentors=mentor_crud.get_Mentor(db,user_id=id)
+#     if Mentors is None:
+#         raise HTTPException(status_code=404, detail="mentor not found")
+#     Users =user_crud.get_User_byemail(db,mail=email)
+#     if Users is None:
+#         raise HTTPException(status_code=404, detail="User not found")
+#     Users.mentor_id = Mentors.id
+#     db.add(Users)
+#     db.commit()
+#     db.refresh(Users)
+#     return Users
 
-@router.get("/findUser/{id}",response_model=List[mentor_schema.find_User])
+@router.get("/findUser",response_model=List[mentor_schema.find_User])
 def find_User(current_user: User = Depends(get_current_user), name:str = Query(...), db: Session = Depends(get_db)):
     """
     회원들  : 15page 1번 멘토가 회원찾는거
@@ -184,7 +212,7 @@ def find_User(current_user: User = Depends(get_current_user), name:str = Query(.
         raise HTTPException(status_code=404, detail="Users not found")
     return Users
 
-@router.get("/getUserInfo/{id}/{daytime}", response_model=mentor_schema.Mentor_get_UserInfo_schema)
+@router.get("/getUserInfo/{daytime}", response_model=mentor_schema.Mentor_get_UserInfo_schema)
 def get_Mentors_User(daytime: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     회원들리스트 정보(당일 Calorie, 식단내용 등) 조회 : 15page 4번 - 멘토가 회원리스트 조회
@@ -201,26 +229,21 @@ def get_Mentors_User(daytime: str, current_user: User = Depends(get_current_user
         raise HTTPException(status_code=404, detail="Users not found")
     result=[]
 
-    date_part=daytime[:10]
-
     for user in Users:
         ranks = user_crud.get_User_rank(db,user.id)
         # User의 meal_hour 정보를 특정 날짜에 맞게 찾기.
-        meal_hours = db.query(MealHour).filter(
-                MealHour.user_id == user.id,
-                MealHour.time.like(f"{date_part}%")
-        ).all()
+        meal_day = meal_day_crud.get_MealDay_bydate(db, user_id=user.id, date=date)
+        meal_hours = meal_hour_crud.get_mealhour_all_by_mealday_id(db,user_id=user.id,daymeal_id=meal_day.id)
 
         meal_names = [meal_hour.name for meal_hour in meal_hours]
 
         # User의 meal_day 정보를 특정 날짜에 맞게 찾기.
-        meal_day = meal_day_crud.get_MealDay_bydate(db,user_id=user.id,date=date)
         now_calorie = meal_day.nowcalorie if meal_day else None
         cheating = meal_day.cheating if meal_day else None
         track_name=None
         dday=None
         if meal_day and meal_day.track_id:
-            using_track = track_crud.get_Track_bytrack_id(db,track_id=meal_day.track_id)
+            using_track = track_crud.get_track_by_track_id(db, track_id=meal_day.track_id)
             if using_track:
                 track_name = using_track.name
             group_info = group_crud.get_group_by_date_track_id_in_part(db,user_id=user.id, date=date,track_id=meal_day.track_id)

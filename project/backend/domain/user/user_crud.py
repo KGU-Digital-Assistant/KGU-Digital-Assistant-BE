@@ -1,9 +1,14 @@
-from datetime import datetime
+from datetime import datetime, date
+
+from fastapi import HTTPException
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from typing import Optional
+
+from starlette import status
+
 from domain.user.user_schema import UserCreate, UserUpdate, Rank, UserProfile
-from models import User, Invitation
+from models import User, Invitation, Mentor
 from firebase_admin import messaging
 
 
@@ -18,11 +23,12 @@ def get_existing_user(db: Session, user_create: UserCreate):
 
 
 def create_user(db: Session, user_create: UserCreate):
+    _cellphone = user_create.cellphone.replace("-", "")
     db_user = User(name=user_create.name,
                    username=user_create.username,
                    nickname=user_create.nickname,
                    email=user_create.email,
-                   cellphone=user_create.cellphone,
+                   cellphone=_cellphone,
                    password=pwd_context.hash(user_create.password1),
                    gender=user_create.gender,
                    rank=Rank.BRONZE.value,
@@ -31,6 +37,7 @@ def create_user(db: Session, user_create: UserCreate):
                    )
     db.add(db_user)
     db.commit()
+    return db_user
 
 
 def update_user(db: Session, user_id: int, user_update: UserUpdate):
@@ -75,14 +82,14 @@ def get_user_by_username(db: Session, _username: str):
 def get_users_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).all()
 
-def update_profile(db: Session, profile_user: UserProfile,
-                   current_user: User):
-    current_user.profile_picture = profile_user.profile_picture
-    current_user.username = profile_user.username
-    current_user.nickname = profile_user.nickname
-    current_user.mentor_id = profile_user.mentor.id
-    db.commit()
-    db.refresh(current_user)
+# def update_profile(db: Session, profile_user: UserProfile,
+#                    current_user: User):
+#     current_user.profile_picture = profile_user.profile_picture
+#     current_user.username = profile_user.username
+#     current_user.nickname = profile_user.nickname
+#     current_user.mentor_id = profile_user.mentor.id
+#     db.commit()
+#     db.refresh(current_user)
 
 
 def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
@@ -92,10 +99,10 @@ def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
     db.refresh(db_user)
 
 
-def get_user_by_cellphone(db: Session, _cellphone: str):
-    cellphone = _cellphone.replace('-', '')
-    phone_number = "010" + cellphone[-8:]
-    return db.query(User).filter(User.cellphone==phone_number).first()
+# def get_user_by_cellphone(db: Session, _cellphone: str):
+#     cellphone = _cellphone.replace('-', '')
+#     phone_number = "010" + cellphone[-8:]
+#     return db.query(User).filter(User.cellphone==phone_number).first()
 
 ###########################################
 
@@ -144,10 +151,31 @@ def get_User_byemail(db: Session, mail: str):
 
 def update_profile(db: Session, profile_user: UserProfile,
                    current_user: User):
-    current_user.profile_picture = profile_user.profile_picture
-    current_user.username = profile_user.username
+    _mentor = None
+    if profile_user.mentor_username == "same":
+        mentor = _mentor = db.query(Mentor).filter(Mentor.id == current_user.mentor_id).first()
+    elif profile_user.mentor_username:
+        _mentor = db.query(User).filter(User.username == profile_user.mentor_username).first()
+
+        if _mentor:
+            mentor = db.query(Mentor).filter(Mentor.user_id == _mentor.id).first()
+            if mentor is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="추가 하려는 해당 사용자는 멘토가 아닙니다."
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="username이 잘못 됨."
+            )
+
+    current_user.name = profile_user.name
     current_user.nickname = profile_user.nickname
-    current_user.mentor_id = profile_user.mentor.id
+    if _mentor is not None:
+        current_user.mentor_id = mentor.id
+    else:
+        current_user.mentor_id = None
     db.commit()
     db.refresh(current_user)
 
@@ -161,8 +189,7 @@ def update_kakao_tokens(db: Session, user_id: int, new_access_token: str):
 
 def get_user_by_cellphone(db: Session, _cellphone: str):
     cellphone = _cellphone.replace('-', '')
-    phone_number = "010" + cellphone[-8:]
-    return db.query(User).filter(User.cellphone==phone_number).first()
+    return db.query(User).filter(User.cellphone==cellphone).first()
 
 
 def save_fcm_token(db: Session, _user_name: str, _fcm_token: str):
@@ -211,3 +238,20 @@ def delete_mentor(id: int, db: Session):
 
 def get_user_by_id(db: Session, id: int):
     return db.query(User).filter(User.id == id).first()
+
+
+def get_user_by_nickname(db: Session, user_create: UserCreate):
+    return db.query(User).filter(User.nickname == user_create.nickname).first()
+
+
+def get_create_day(db: Session, user_id: int):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    create_date = user.create_date
+    delta = datetime.now() - create_date
+    days = delta.days
+    return days
+
+
+def get_user_by_only_nickname(db: Session, nickname: str):
+    return db.query(User).filter(User.nickname == nickname).first()

@@ -84,18 +84,50 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "username": user.username
+        "username": user.username,
+        "user_id": user.id,
+        "nickname": user.nickname
     }
 
 
+@router.post("/create/test")
+def test(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
+    user = user_crud.create_user(db=db, user_create=_user_create)
+    return {"user_id": user.id, "user_username": user.username}
+
 # 회원가입
-@router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/create")
 def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
-    user = user_crud.get_existing_user(db, user_create=_user_create)
-    if user:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="이미 존재하는 사용자입니다.")
-    user_crud.create_user(db=db, user_create=_user_create)
+    nickname_user = user_crud.get_user_by_nickname(db, user_create=_user_create)
+    if nickname_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "status": "닉네임 중복",
+                "error_code": 2,
+            }
+        )
+    email_user = user_crud.get_user_by_email(db, email=_user_create.email)
+    if email_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "status": "이메일 중복",
+                "error_code": 3,
+            }
+        )
+    cellphone_user = user_crud.get_user_by_cellphone(db, _user_create.cellphone)
+    if cellphone_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "status": "휴대폰 중복",
+                "error_code": 4,
+            }
+        )
+
+    user = user_crud.create_user(db=db, user_create=_user_create)
+    return {"user_id": user.id, "user_username": user.username}
 
 
 def get_authorization_token(authorization: str = Header(...)) -> str:
@@ -110,6 +142,20 @@ def get_authorization_token(authorization: str = Header(...)) -> str:
             headers={"WWW-Authenticate": "Bearer"},
         )
     return param
+
+
+@router.post("/username/valid/{username}")
+def username_valid(username: str, db: Session = Depends(get_db)):
+    user = user_crud.get_user_by_username(db, username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "status": "아이디 중복",
+                "error_code": 1,
+            },
+        )
+    return {"status": "ok"}
 
 
 @router.post("/register/fcm-token")
@@ -311,6 +357,16 @@ def get_oauth_login_url(state: str) -> str:
     query_param = parse.urlencode(params, doseq=True)
 
     return f"{KAKAO_OAUTH_URL}/authorize?{query_param}"
+
+
+@router.get("/create_day")
+def create_day(current_user: User = Depends(get_current_user),
+               db: Session = Depends(get_db)):
+    """
+    회원가입 한지 몇일 째 인지 반환
+    """
+    days = user_crud.get_create_day(db, current_user.id)
+    return {"days": days}
 
 
 @router.get("/kakao/login")
@@ -592,14 +648,40 @@ def get_users_by_username(username: str, db: Session = Depends(get_db)):
 
 
 # user id로 1명 반환
-@router.get("/users/{user_id}", response_model=user_schema.UserSchema)
-def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
-    return user_crud.get_user(db=db, user_id=user_id)
+@router.get("/user/info", response_model=user_schema.UserSchema)
+def get_user_by_id(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    현재 유저 정보 반환
+    """
+    return user_crud.get_user(db=db, user_id=current_user.id)
+
+
+@router.get("/user/setting/info")
+def get_user_by_id(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    현재 유저 정보 반환
+    """
+    user = user_crud.get_user_by_id(db, id=current_user.id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    gym = ''
+    mentor_name = ''
+    if user.mentor_id:
+        mentor = mentor_crud.get_mentor_by_id(db, user.mentor_id)
+        gym = mentor.gym
+        mentor_info = user_crud.get_user_by_id(db, id=mentor.user_id)
+        mentor_name = mentor_info.name
+
+    return {"username": user.username, "name": user.name,
+            "gym": gym, "mentor_name": mentor_name}
 
 
 # fcm 토큰 발급받아 저장하기 !!
 @router.post("/register")
 async def register_token(request: Request, db: Session = Depends(get_db)):
+    """
+    fcm token 발급받아서 저장하기 !
+    """
     data = await request.json()
     token = data.get('token')
     user_id = data.get('user_id')
@@ -608,7 +690,7 @@ async def register_token(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Token and user_id required")
 
     try:
-        user = db.query(User).filter(User.id == user_id).one()
+        user = user_crud.get_user_by_id(db, id=user_id)
         user.fcm_token = token
         db.commit()
         return {"message": "Token registered successfully"}
@@ -700,7 +782,7 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
     return User  ##전체 열 출력
 
 
-@router.get("/get/{id}/rank", response_model=user_schema.UserRank)
+@router.get("/get/rank", response_model=user_schema.UserRank)
 def get_id_User_rank(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     유저랭크 조회 : 9page 3번 (현재 보류)
@@ -713,7 +795,7 @@ def get_id_User_rank(current_user: User = Depends(get_current_user), db: Session
     return {"rank": rank}  ##rank 열만 출력
 
 
-@router.get("/get/{id}/nickname/mine", response_model=user_schema.Usernickname)
+@router.get("/get/nickname/mine", response_model=user_schema.Usernickname)
 def get_id_User_nickname_user(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     유저 Nickname 조회 : 11page 1번, 12page 1번
@@ -751,7 +833,7 @@ def get_id_User(id: int, db: Session = Depends(get_db)):
     return {"name": name}  ##name 열만 출력
 
 
-@router.post("/upload_profile_picture/{id}")
+@router.post("/upload_profile_picture")
 async def upload_profile_picture(current_user: User = Depends(get_current_user), file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
@@ -784,7 +866,7 @@ async def upload_profile_picture(current_user: User = Depends(get_current_user),
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/get_profile_picture/{id}")
+@router.get("/get_profile_picture")
 async def get_profile_picture(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         # 사용자 조회
@@ -818,7 +900,7 @@ async def get_user(db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="User not found")
 
     mentor_name = ""
-    mentor = mentor_crud.get_mentor(db, user_id=current_user.mentor_id)
+    mentor = mentor_crud.get_mentor_by_id(db, current_user.mentor_id)
     if mentor:
         _mentor = user_crud.get_user_by_id(db, id=mentor.user_id)
         mentor_name = _mentor.name
@@ -831,12 +913,20 @@ async def get_user(db: Session = Depends(get_db),
     }
 
 
-@router.patch("/update/profile")
+@router.patch("/update/profile", response_model=user_schema.UserSchema)
 async def profile_update(_user_profile: user_schema.UserProfile,
                          db: Session = Depends(get_db),
                          current_user: User = Depends(get_current_user)):
-    user = user_crud.get_User(db, id=current_user.id)
+    user = user_crud.get_user_by_id(db, id=current_user.id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # 현재 닉네임을 유지라면 넘기기
+    if user.nickname != _user_profile.nickname:
+        if user_crud.get_user_by_only_nickname(db, _user_profile.nickname):
+            raise HTTPException(status_code=404, detail="Nickname is already taken")
+
+    if user.username == _user_profile.mentor_username:
+        raise HTTPException(status_code=404, detail="멘토로 본인을 추가할 순 없습니다.")
     user_crud.update_profile(db=db, profile_user=_user_profile, current_user=current_user)
+    return current_user

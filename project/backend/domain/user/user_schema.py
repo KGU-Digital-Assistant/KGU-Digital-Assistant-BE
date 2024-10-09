@@ -81,12 +81,20 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     username: str
+    user_id: int
+    nickname: str
 
 
 class UserSchema(BaseModel):
     id: int
-    username: str
     email: str
+    username: str
+    name: str
+    nickname: str
+    cellphone: str
+    gender: bool
+    birth: datetime.date
+    mentor_id: Optional[int]
 
     class Config:
         orm_mode = True
@@ -107,10 +115,9 @@ class RefreshTokenRequest(BaseModel):
 
 
 class UserProfile(BaseModel):
-    profile_picture: str
     name: str
     nickname: str
-    mentor_name: Optional[str] = None
+    mentor_username: Optional[str] = None
 
 #########################################
 
@@ -122,7 +129,7 @@ class User(BaseModel):
     birth: Optional[datetime.date] = None
     create_date: datetime.datetime
     nickname: str
-    rank: float
+    rank: str
     profile_picture: Optional[str] = None
     mentor_id: Optional[int] = None
     email: str
