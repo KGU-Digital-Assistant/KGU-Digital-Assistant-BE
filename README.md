@@ -1,4 +1,7 @@
 # 🚧진행중
+## Architecture
+![image](https://github.com/user-attachments/assets/d20d16ee-4a0e-4bb0-b53e-1266ecf5e065)
+
 
 ## 🌊Flow
 ![누메이트_시퀀스다이어그램rev0](https://github.com/user-attachments/assets/086a3718-eaeb-4635-a5bf-7d1fa15cee16)
