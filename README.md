@@ -1,5 +1,5 @@
 # 🚧진행중
-## Architecture
+## 🏭 Architecture
 ![image](https://github.com/user-attachments/assets/4ef8f249-fd64-46e0-87bf-126787e48e44)
 
 
