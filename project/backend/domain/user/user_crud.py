@@ -255,3 +255,8 @@ def get_create_day(db: Session, user_id: int):
 
 def get_user_by_only_nickname(db: Session, nickname: str):
     return db.query(User).filter(User.nickname == nickname).first()
+
+def update_cur_group_id(db: Session, user_id: int, group_id: int):
+    db_user = db.query(User).filter(User.id == user_id).first()
+    db_user.cur_group_id = group_id
+    db.commit()

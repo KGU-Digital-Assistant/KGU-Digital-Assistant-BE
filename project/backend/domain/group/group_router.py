@@ -260,7 +260,7 @@ def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_cu
         using_track = track_crud.get_track_by_track_id(db, track_id=meal_day.track_id)
         if using_track:
             track_name = using_track.name
-            track_id = using_track.track_id
+            track_id = using_track.id
         group_info = group_crud.get_group_by_date_track_id_in_part(db, user_id=current_user.id, date=date,
                                                                    track_id=meal_day.track_id)
         if group_info and group_info is not None:
@@ -362,7 +362,7 @@ def start_track_user_id_track_id(track_id: int, daytime: str, current_user: User
                                      cheating_count=track_will_use.cheating_count)
         group_crud.update_group_mealday_pushing_start(db, user_id=current_user.id, track_id=track_id, date=date,
                                                       group_id=group_will_use.id, duration=track_will_use.duration)
-        current_user.cur_group_id = group_will_use.id
+        user_crud.update_cur_group_id(db, user_id=current_user.id, group_id=group_will_use.id)
 
     if track_will_use.alone == False:  # 개인 트랙이 아닐 경우
         group_crud.update_group_mealday_pushing_start(db, user_id=current_user.id, track_id=track_id, date=date,

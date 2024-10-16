@@ -153,3 +153,9 @@ def update_track_goal(db:Session,mealhour:MealHour):
     else:
         mealhour.track_goal = True
     db.commit()
+
+def create_mealhour(db:Session, mealhour: MealHour, track_goal: bool):
+    mealhour.track_goal =track_goal
+    db.add(mealhour)
+    db.commit()
+    return mealhour
