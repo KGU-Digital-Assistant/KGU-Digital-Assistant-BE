@@ -279,12 +279,14 @@ def update_group_mealday_pushing_start(db: Session, user_id: int, track_id: int,
                 .values(flag=FlagStatus.TERMINATED, finish_date=date - timedelta(days=1))
             )
             db.execute(stmt)
+        group.status=GroupStatus.TERMINATED
         db.commit()
 
     # 새 트랙의 Group 시작 종료일 설정
     groupnew = get_group_by_id(db, group_id=group_id)
     groupnew.start_day = date
     groupnew.finish_day = new_group_finish_date
+    groupnew.status=GroupStatus.STARTED
     db.add(groupnew)
     db.commit()
     db.refresh(groupnew)

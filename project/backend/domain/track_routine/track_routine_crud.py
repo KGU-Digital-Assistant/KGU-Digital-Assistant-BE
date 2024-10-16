@@ -487,3 +487,10 @@ def get_trackroutine_all_by_track_id_delete_false(db:Session, track_id: int):
     db.query(TrackRoutine).filter(
         TrackRoutine.track_id == track_id, TrackRoutine.delete == False
     ).all()
+
+def get_trackroutinedate_by_trackroutine_id_weekday_time_date(db: Session, trackroutin_id: int,weekday: int, time: MealTime, date: int):
+    trackroutindates = db.query(TrackRoutineDate).filter(TrackRoutineDate.routine_id == trackroutin_id,
+                                                         TrackRoutineDate.weekday == weekday,
+                                                         TrackRoutineDate.time == time,
+                                                         TrackRoutineDate.date == date).first()
+    return  trackroutindates
