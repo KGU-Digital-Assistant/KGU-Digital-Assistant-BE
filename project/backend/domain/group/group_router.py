@@ -253,7 +253,7 @@ def get_track_name_dday_byDate(daytime: str, current_user: User = Depends(get_cu
     if meal_day is None:
         raise HTTPException(status_code=404, detail="MealDay not found")
     track_name = None
-    track_id = None
+    track_id = -1
     dday = None
     using_track = None
     if meal_day and meal_day.track_id:
