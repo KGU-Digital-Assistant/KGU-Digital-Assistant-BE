@@ -204,10 +204,8 @@ class MealHour(Base):  ##식단게시글 (시간대별)
     unit = Column(String(length=255), nullable=True)  ##저장단위
     size = Column(Float, nullable=True)  ##사이즈
     track_goal = Column(Boolean, nullable=True)  ##트랙지켯는지 안지켰는지 유무
+    label = Column(Integer, nullable=True)
     daymeal_id = Column(Integer, ForeignKey("MealDay.id"), nullable=False)
-    __table_args__ = (
-        UniqueConstraint('user_id', 'time', name='_user_date_hour_uc'),
-    )
 
 
 class Comment(Base):  ##댓글

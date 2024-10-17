@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote
 from typing import List
 from datetime import datetime, timedelta, time, date
 from models import MealDay, MealHour, TrackRoutine,User, Mentor, TrackRoutineDate
@@ -6,8 +7,10 @@ from firebase_config import send_fcm_data_noti,send_fcm_notification
 from fastapi import APIRouter, Form,File,Depends, HTTPException,UploadFile
 from sqlalchemy.orm import Session
 from sqlalchemy import or_,and_
+import requests
 from starlette import status
 from database import get_db
+from domain.track_routine import track_routine_crud
 from domain.user import user_crud
 from domain.mentor import mentor_crud
 from domain.meal_hour import meal_hour_schema,meal_hour_crud
@@ -149,19 +152,26 @@ async def upload_food(current_user: User = Depends(get_current_user), file: Uplo
 
     #Yolov 서버로 파일 전송(yolov 서버가 firebase 사진에 접근)
     url = temp_blob.generate_signed_url(expiration=timedelta(hours=1)) #60분 유효url
-    ##response = requests.post("http://yoloserver", json={"url":url})
+    print(url)
+    encoded_url = quote(url, safe='')
 
-    #Yolov 서버 응답 확인 - 실패시 0 출력
-    ##if response.status_code != 200:
-    ##    temp_blob.delete()  #firebase에 저장된 임시파일삭제
-    ##    raise HTTPException(status_code=400, detail="YOLOv Server failed")
-    ##    return 0
+    # YOLO 서버에 POST 요청을 보내고, 응답 받기
+    response = requests.post(f"http://110.8.6.21/yolo/?url={encoded_url}", headers={'accept': 'application/json'})
+    print(response.status_code)
+    # Yolov 서버 응답 확인 - 실패시 0 출력
+    if response.status_code != 201:
+       temp_blob.delete()  #firebase에 저장된 임시파일삭제
+       raise HTTPException(status_code=400, detail="YOLOv Server failed")
+       return 0
 
     #Yolov 서버에서 반환된 정보
-    ##food_info = response.json()
-    food_info = {"name": "Oatmeal", "date": "2024-06-27T07:30:00", "heart": True, "carb": 50.0, "protein": 10.0, "fat": 5.0, "calorie": 300.0, "unit": "gram", "size": 200.0, "daymeal_id": 1}
-
-
+    food_info = response.json()
+    print(food_info)
+    food_info_dict = json.loads(food_info)
+    is_success = bool(food_info_dict.get("is_success", False))
+    if is_success == False:
+        temp_blob.delete()
+        raise HTTPException(status_code=400, detail="No food data")
     return {"file_path": temp_blob.name, "food_info": food_info, "image_url": url} ## 임시파일이름, food정보, url 반환
 
 @router.delete("/remove/{times}")
@@ -220,6 +230,10 @@ async def register_meal(times: str, hourminute: str,file_path: str = Form(...), 
         raise HTTPException(status_code=400, detail="Invalid hourminute format. Use HHMM format like 1240.")
     # 오늘 날짜와 hourminute를 결합한 datetime 객체 생성
     date_time = datetime.combine(date,time(hour, minute))
+    daymeal = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date= date)
+    mealhour_check = meal_hour_crud.get_user_meal(db, user_id=current_user.id,daymeal_id=daymeal.id, mealtime=mealtime)
+    if mealhour_check:
+        raise HTTPException(status_code=400, detail="Already registered mealhour")
 
     temp_blob = bucket.blob(file_path)
 
@@ -236,9 +250,7 @@ async def register_meal(times: str, hourminute: str,file_path: str = Form(...), 
     #food_info를 Json에서 파싱
     food_info_dict = json.loads(food_info)
 
-    daymeal_id = db.query(MealDay.id).filter(MealDay.user_id==current_user.id,MealDay.date==date).first()
 
-    ## ai 제공 정보 확정후 수정예정
     new_food = MealHour(
         user_id=current_user.id,
         name=food_info_dict.get("name",""),
@@ -247,62 +259,38 @@ async def register_meal(times: str, hourminute: str,file_path: str = Form(...), 
         date=date_time,  # 현재 시간을 기본값으로 설정
         heart=False,
         time=mealtime,
-        carb=food_info_dict.get("carb", 0.0),
-        protein=food_info_dict.get("protein", 0.0),
-        fat=food_info_dict.get("fat", 0.0),
-        calorie=food_info_dict.get("calorie", 0.0),
-        unit=food_info_dict.get("unit","gram"),
-        size=food_info_dict.get("size", 0.0),
+        carb=float(food_info_dict.get("carb", 0.0)),
+        protein=float(food_info_dict.get("protein", 0.0)),
+        fat=float(food_info_dict.get("fat", 0.0)),
+        calorie=float(food_info_dict.get("kcal", 0.0)),
+        unit="gram",
+        size=float(food_info_dict.get("weight", 0.0)),
         track_goal=None,
-        daymeal_id=daymeal_id
+        daymeal_id=daymeal.id,
+        label= int(food_info_dict.get("labels", [None])[0])
     )
-
     daily_post = meal_hour_crud.plus_daily_post(db, current_user.id, date, new_food)
 
-    mealtoday = meal_day_crud.get_MealDay_bydate(db, user_id=current_user.id, date=date)
     weekday_number = date.weekday()
     goal = False
     ###아래 코드 test 필요 식단 등록 잘햇는지 판단하는 내용 goal true false 여부
-    # if mealtoday and mealtoday.track_id:
-    #     group_part = get_group_track_id_in_part_state_start(db, user_id=current_user.id, track_id=mealtoday.track_id)
-    #     if group_part is None:
-    #         raise HTTPException(status_code=404, detail="User or Group not found")
-    #     group, cheating_count, user_id2, flag, finish_date = group_part
-    #     days = (date - group.start_day).days + 1
-    #     trackroutines = db.query(TrackRoutine).filter(
-    #         TrackRoutine.track_id == mealtoday.track_id
-    #     ).all()
-    #     if trackroutines is not None:
-    #         for trackroutin in trackroutines:
-    #             trackroutindates = db.query(TrackRoutineDate).filter(TrackRoutineDate.routine_id==trackroutin.id,
-    #                                               TrackRoutineDate.weekday==weekday_number,
-    #                                               TrackRoutineDate.time==mealtime,
-    #                                               TrackRoutineDate.date==days).first()
-    #             if trackroutindates and new_food.name in trackroutin.title: 
-    #                 goal = True
-    #                 break;
+    if daymeal and daymeal.track_id:
+        group_part = get_group_track_id_in_part_state_start(db, user_id=current_user.id, track_id=daymeal.track_id)
+        if group_part is None:
+            raise HTTPException(status_code=404, detail="User or Group not found")
+        group, cheating_count, user_id2, flag, finish_date = group_part
+        days = (date - group.start_day).days + 1
+        trackroutines = track_routine_crud.get_track_routine_by_track_id(db, track_id=daymeal.track_id)
+        if trackroutines is not None:
+            for trackroutin in trackroutines:
+                trackroutindates = track_routine_crud.get_trackroutinedate_by_trackroutine_id_weekday_time_date(db, trackroutin_id=trackroutin.id,
+                                                                                                                weekday= weekday_number,time=mealtime,
+                                                                                                                date=days)
+                if trackroutindates and new_food.name in trackroutin.title:
+                    goal = True
+                    break;
 
-
-    add_food = MealHour(
-        user_id=current_user.id,
-        name=food_info_dict.get("name",""),
-        picture=meal_blob.name,
-        text=text,
-        date=date_time,
-        heart=food_info_dict.get("heart", False),
-        time=mealtime,
-        carb=food_info_dict.get("carb", 0.0),
-        protein=food_info_dict.get("protein", 0.0),
-        fat=food_info_dict.get("fat", 0.0),
-        calorie=food_info_dict.get("calorie", 0.0),
-        unit=food_info_dict.get("unit", "gram"),
-        size=food_info_dict.get("size", 0.0),
-        track_goal=goal,
-        daymeal_id=daily_post.id
-    )
-    db.add(add_food)
-    db.commit()
-    db.refresh(add_food)
+    add_food = meal_hour_crud.create_mealhour(db, mealhour=new_food,track_goal=goal)
 
     username = current_user.name
     mentor_id = current_user.mentor_id

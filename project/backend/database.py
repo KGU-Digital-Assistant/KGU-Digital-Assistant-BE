@@ -48,32 +48,32 @@ def get_db():
 #2. group내 모든인원이 종료될 경우(참여 tbl의 flag 전부 false) -> group.state = terminated(초기는 flag == NOne)ready상태
 #3. 참여 tbl 내 finish_date의 날짜에 도달하는경우 -> flag = false > 쓰레드 무기한먹음 aps-scheduler사용
 
-@event.listens_for(engine, "connect")
-def create_triggers(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.executescript("""
-    -- 모든 flag가 'started'일 때 Group 테이블의 state를 'started'로 변경
-    CREATE TRIGGER IF NOT EXISTS group_start
-    AFTER UPDATE OF flag ON Participation
-    FOR EACH ROW
-    WHEN (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag != 'STARTED') = 0
-    AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'STARTED') > 0
-    BEGIN
-        UPDATE "Group"
-        SET status = 'STARTED'
-        WHERE id = NEW.group_id;
-    END;
+#@event.listens_for(engine, "connect")
+#def create_triggers(dbapi_connection, connection_record):
+#    cursor = dbapi_connection.cursor()
+#    cursor.executescript("""
+#    -- 모든 flag가 'started'일 때 Group 테이블의 state를 'started'로 변경
+#    CREATE TRIGGER IF NOT EXISTS group_start
+#    AFTER UPDATE OF flag ON Participation
+#    FOR EACH ROW
+#    WHEN (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag != 'STARTED') = 0
+#    AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'STARTED') > 0
+#    BEGIN
+#        UPDATE "Group"
+#        SET status = 'STARTED'
+#        WHERE id = NEW.group_id;
+#    END;
 
-    -- 모든 flag가 'terminated'일 때 Group 테이블의 state를 'terminated'로 변경
-    CREATE TRIGGER IF NOT EXISTS group_terminate
-    AFTER UPDATE OF flag ON Participation
-    FOR EACH ROW
-    WHEN (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag != 'TERMINATED') = 0
-    AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'TERMINATED') > 0
-    BEGIN
-        UPDATE "Group"
-        SET status = 'TERMINATED'
-        WHERE id = NEW.group_id;
-    END;
-    """)
-    cursor.close()
+#    -- 모든 flag가 'terminated'일 때 Group 테이블의 state를 'terminated'로 변경
+#    CREATE TRIGGER IF NOT EXISTS group_terminate
+#    AFTER UPDATE OF flag ON Participation
+#    FOR EACH ROW
+#    WHEN (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag != 'TERMINATED') = 0
+#    AND (SELECT COUNT(*) FROM Participation WHERE group_id = NEW.group_id AND flag = 'TERMINATED') > 0
+#    BEGIN
+#        UPDATE "Group"
+#        SET status = 'TERMINATED'
+#        WHERE id = NEW.group_id;
+#    END;
+#    """)
+#    cursor.close()
