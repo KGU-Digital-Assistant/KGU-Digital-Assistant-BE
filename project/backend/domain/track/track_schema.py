@@ -13,6 +13,7 @@ class TrackCreate(BaseModel):
     coffee: float
     alcohol: float
     duration: int
+    cheating_cnt: int
     delete: bool
     alone: bool
     calorie: float
@@ -59,8 +60,7 @@ class TrackList(BaseModel):
     tracks: list[TrackSchema] = []
 
 
-######################################
-class Track_schema(BaseModel):
+class TrackSchemaHB(BaseModel):
     id: int
     icon: Optional[str]
     user_id: int
@@ -73,7 +73,7 @@ class Track_schema(BaseModel):
     cheating_count: Optional[int] = None
 
 
-class Track_list_get_schema(BaseModel):
+class TrackListGetSchema(BaseModel):
     track_id: int
     name: str
     icon: Optional[str] = None
@@ -84,7 +84,7 @@ class Track_list_get_schema(BaseModel):
     using: Optional[bool] = None
 
 
-class Track_create_schema(BaseModel):
+class TrackCreateSchema(BaseModel):
     name: str
     water: float
     coffee: float
@@ -94,10 +94,10 @@ class Track_create_schema(BaseModel):
     routines: List[TrackRoutineCreateSchema] = []
 
 
-class Track_get_Info(BaseModel):
+class TrackGetInfo(BaseModel):
     track_name: str
     icon: str
-    name: str
+    name: Optional[str]
     track_start_day: Optional[date] = None
     track_finish_day: Optional[date] = None
     group_start_day: Optional[date] = None
@@ -110,8 +110,6 @@ class Track_get_Info(BaseModel):
     alcohol: Optional[float] = None
     water: Optional[float] = None
     cheating_count: Optional[int] = None
-    repeatroutin: Optional[List[TrackRoutin_id_title]] = []
-    soloroutin: Optional[List[TrackRoutin_id_title]] = []
 
 
 class TrackSearch(BaseModel):

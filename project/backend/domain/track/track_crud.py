@@ -7,7 +7,7 @@ from sqlalchemy import desc
 from domain.track import track_schema
 from models import User, Track, Invitation, MealDay, TrackRoutine, TrackRoutineDate, Group
 from sqlalchemy.orm import Session
-from domain.track.track_schema import Track_list_get_schema, TrackCreate, TrackSchema
+from domain.track.track_schema import TrackListGetSchema, TrackCreate, TrackSchema
 from datetime import datetime, timedelta
 from domain.group import group_crud
 
@@ -23,7 +23,7 @@ def track_create(db: Session, user: User):
 
 
 # 이름 track 찾기
-def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, cheating_cnt: int):
+def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate):
     track = db.query(Track).filter(Track.id == _track_id).first()
     if (track is None):
         return None
@@ -32,11 +32,11 @@ def track_update(db: Session, _track_id: int, user: User, _track: TrackCreate, c
 
     track.name = _track.name
     track.icon = _track.icon
-    track.cheating_count = cheating_cnt
     track.water = _track.water or track.water
     track.coffee = _track.coffee or track.coffee
     track.alcohol = _track.alcohol or track.alcohol
     track.duration = _track.duration
+    track.cheating_count = _track.cheating_cnt
     track.delete = _track.delete
     track.start_date = _track.start_date
     track.end_date = _track.end_date
@@ -79,11 +79,11 @@ def get_Track_mine_title_all(db: Session, user_id: int):
                                     Track.delete == False).all()
     tracks = sorted(tracks, key=lambda x: x.create_time, reverse=True)
     return [
-        Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
-                              create_time=track.create_time,
-                              recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
-                              recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
-                              using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
+        TrackListGetSchema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
+                           create_time=track.create_time,
+                           recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
+                           recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
+                           using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
 
 
 def get_Track_share_title_all(db: Session, user_id: int):
@@ -97,11 +97,11 @@ def get_Track_share_title_all(db: Session, user_id: int):
                 tracks.append(track_share_one)
     tracks = sorted(tracks, key=lambda x: x.create_time, reverse=True)
     return [
-        Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
-                              create_time=track.create_time,
-                              recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
-                              recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
-                              using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
+        TrackListGetSchema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
+                           create_time=track.create_time,
+                           recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
+                           recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
+                           using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
 
 
 def delete_track(db: Session, track_id: int):
@@ -178,11 +178,11 @@ def get_track_title_all(db: Session, user_id: int):
                 #seen_trackid.add(track.id)  # 처리된 track_id 집합
 
     return [
-        Track_list_get_schema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
-                              create_time=track.create_time,
-                              recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
-                              recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
-                              using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
+        TrackListGetSchema(track_id=track.id, name=track.name, icon=track.icon, daily_calorie=track.daily_calorie,
+                           create_time=track.create_time,
+                           recevied_user_id=get_user_id_using_track(db, track_id=track.id, user_id=user_id),
+                           recevied_user_name=get_user_name_using_track(db, track_id=track.id, user_id=user_id),
+                           using=check_today_track_id(db, user_id=user_id, track_id=track.id)) for track in tracks]
 
 
 def get_user_id_using_track(db: Session, track_id: int, user_id: int):
