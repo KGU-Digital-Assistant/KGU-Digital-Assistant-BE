@@ -167,8 +167,7 @@ async def upload_food(current_user: User = Depends(get_current_user), file: Uplo
     #Yolov 서버에서 반환된 정보
     food_info = response.json()
     print(food_info)
-    food_info_dict = json.loads(food_info)
-    is_success = bool(food_info_dict.get("is_success", False))
+    is_success = bool(food_info.get("is_success", False))
     if is_success == False:
         temp_blob.delete()
         raise HTTPException(status_code=400, detail="No food data")
