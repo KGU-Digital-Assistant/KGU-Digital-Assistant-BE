@@ -1,0 +1,55 @@
+version: '3.0'
+
+services:
+  db:
+    image: mariadb:10
+    container_name: db
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./db/conf.d:/etc/mysql/conf.d
+      - ./db/data:/var/lib/mysql
+      - ./db/initdb.d:/docker-entrypoint-initdb.d
+    env_file: .env
+    environment:
+      TZ: Asia/Seoul
+    networks:
+      - backend
+    restart: always
+
+  backend:
+    build:
+      context: app
+      dockerfile: Dockerfile
+    container_name: fastapi-build
+    restart: always
+    expose:
+      - "8000"
+    command: gunicorn -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000
+    env_file: .env
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud
+      - ./app:/usr/src/app
+    environment:
+      - ENVIRONMENT=dev
+      - TESTING=0
+    networks:
+      - backend
+    depends_on:
+      - db
+  nginx:
+    container_name: nginx-build
+    build: nginx
+    ports:
+      - "80:80"
+    restart: always
+    volumes:
+      - ./app:/usr/src/app
+    depends_on:
+      - backend
+    networks:
+      - backend
+networks:
+  backbone:
+    driver: bridge
+  backend:

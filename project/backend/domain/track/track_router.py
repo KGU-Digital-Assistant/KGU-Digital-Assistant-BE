@@ -50,11 +50,9 @@ def create_track(_current_user: User = Depends(user_router.get_current_user),
     return {"track_id": track.id}
 
 
-# 트랙 생성 도중에 강제종료 했을 때 예외 처리
-@router.patch("/create/next", response_model=track_schema.TrackSchema)
+@router.patch("/create/next/{_track_id}", response_model=track_schema.TrackSchema)
 def update_track(_track_id: int,
                  _track: TrackCreate,
-                 cheating_cnt: int,
                  _current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     """
@@ -62,7 +60,7 @@ def update_track(_track_id: int,
     1. 트랙 내용 채우기
     2. 그룹 생성
     """
-    track = track_crud.track_update(db, _track_id, _current_user, _track, cheating_cnt)
+    track = track_crud.track_update(db, _track_id, _current_user, _track)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     # group = group_crud.create_group(db, track, _current_user.id) 이젠 스타트 할때 생성 할거
@@ -75,7 +73,6 @@ def update_track(_track_id: int,
 @router.patch("/update/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 def update_track(track_id: int,
                  _track: TrackCreate,
-                 cheating_cnt: int,
                  _current_user: User = Depends(user_router.get_current_user),
                  db: Session = Depends(get_db)):
     track = track_crud.get_track_by_id(db, track_id)
@@ -84,8 +81,9 @@ def update_track(track_id: int,
     if track.delete:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track state is deleted")
 
-    track_crud.track_update(db, track_id, _current_user, _track, cheating_cnt)
-
+    t = track_crud.track_update(db, track_id, _current_user, _track)
+    if t is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
 @router.post("/share/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 def change_track(track_id: int,
@@ -98,7 +96,7 @@ def change_track(track_id: int,
     track = track_crud.get_track_by_id(db, track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if track.origin_track_id != _current_user.id:
+    if track.origin_track_id != _current_user.id and track.origin_track_id is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="트랙 권한이 없음")
 
     new_track = track_crud.copy_multiple_track(db, track, _current_user.id)
@@ -174,7 +172,7 @@ def get_tracks_by_name_levenshtein(track_name: str, db: Session = Depends(get_db
 #        raise HTTPException(status_code=404, detail="Track not found")
 #    return tracks
 
-@router.get("/get/mytracks", response_model=List[track_schema.Track_list_get_schema])
+@router.get("/get/mytracks", response_model=List[track_schema.TrackListGetSchema])
 def get_Track_mylist(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     보유 트랙 정보 표시 : 19page 2-3번(개인트랙)
@@ -193,7 +191,7 @@ def get_Track_mylist(current_user: User = Depends(get_current_user), db: Session
     return tracklist
 
 
-@router.get("/get/sharetracks", response_model=List[track_schema.Track_list_get_schema])
+@router.get("/get/sharetracks", response_model=List[track_schema.TrackListGetSchema])
 def get_Track_sharelist(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     보유 트랙 정보 표시 : 19page 2-3번(공유한 트랙)
@@ -212,7 +210,7 @@ def get_Track_sharelist(current_user: User = Depends(get_current_user), db: Sess
     return tracklist
 
 
-@router.get("/get/alltracks", response_model=List[track_schema.Track_list_get_schema])
+@router.get("/get/alltracks", response_model=List[track_schema.TrackListGetSchema])
 def get_track_all_list(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     보유 트랙 정보 표시 : 19page 2-3번(초대트랙)(본인트랙 + 공유한 트랙)
@@ -231,7 +229,7 @@ def get_track_all_list(current_user: User = Depends(get_current_user), db: Sessi
     return tracklist
 
 
-@router.get("/get/{track_id}/Info", response_model=track_schema.Track_get_Info)
+@router.get("/get/{track_id}/Info", response_model=track_schema.TrackGetInfo)
 def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     트랙상세보기 : 23page 0번
@@ -279,7 +277,7 @@ def get_Track_Info(track_id: int, current_user: User = Depends(get_current_user)
         "group_finish_day": group_finishday,
         "real_finish_day": real_finishday,
         "duration": track.duration,
-        "caloire": calorie,
+        "calorie": calorie,
         "count": count,
         "coffee": track.coffee,
         "alcohol": track.alcohol,

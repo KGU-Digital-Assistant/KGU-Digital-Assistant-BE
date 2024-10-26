@@ -7,6 +7,9 @@ from enum import Enum as PyEnum, Enum
 from domain.group.group_schema import GroupStatus
 
 
+group_status_enum = SqlEnum(GroupStatus, name="groupstatus", create_type=False)
+
+
 class FlagStatus(Enum):
     READY = "READY"
     STARTED = "STARTED"
@@ -20,6 +23,11 @@ class MealTime(Enum):
     LINNER = 4  #점저
     DINNER = 5
     SNACK = 6  # 간식
+
+
+mealtime_enum = SqlEnum(MealTime, name="mealtime", create_type=False)
+flag_status_enum = SqlEnum(FlagStatus, name="flagstatus", create_type=False)
+
 
 
 Participation = Table(
@@ -137,7 +145,7 @@ class TrackRoutine(Base):  ## 식단트랙 루틴
     delete = Column(Boolean, nullable=False, default=False) # 삭제했을 시 true로 변경
 
 
-#   요일 -> 몇일차인지 확인하는 척도
+# #   요일 -> 몇일차인지 확인하는 척도
 
 
 class TrackRoutineDate(Base):
