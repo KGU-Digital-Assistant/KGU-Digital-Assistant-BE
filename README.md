@@ -1,7 +1,6 @@
 # 🚧진행중
 ## 🏭 Architecture
-![image](https://github.com/user-attachments/assets/4ef8f249-fd64-46e0-87bf-126787e48e44)
-
+![image](https://github.com/user-attachments/assets/e0d8f0a4-ab88-415e-a925-178c5b4ade4a)
 
 
 ## 🌊Flow
