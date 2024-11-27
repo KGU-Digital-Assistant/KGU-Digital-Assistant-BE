@@ -156,7 +156,8 @@ async def upload_food(current_user: User = Depends(get_current_user), file: Uplo
     encoded_url = quote(url, safe='')
 
     # YOLO 서버에 POST 요청을 보내고, 응답 받기
-    response = requests.post(f"http://110.8.6.21/yolo/?url={encoded_url}", headers={'accept': 'application/json'})
+    response = requests.post(f"https://hamster-delicate-sparrow.ngrok-free.app/yolo/?url={encoded_url}", headers={'accept': 'application/json', 'ngrok-skip-browser-warning':'hello'})
+    #response = requests.post(f"http://110.8.6.21/yolo/?url={encoded_url}", headers={'accept': 'application/json'})
     print(response.status_code)
     # Yolov 서버 응답 확인 - 실패시 0 출력
     if response.status_code != 201:
