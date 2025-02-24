@@ -1,10 +1,14 @@
-# 🚧진행중
+# V.1
 ## 🏭 Architecture
 ![image](https://github.com/user-attachments/assets/e0d8f0a4-ab88-415e-a925-178c5b4ade4a)
 
 
 ## 🌊Flow
 ![누메이트_시퀀스다이어그램rev0](https://github.com/user-attachments/assets/086a3718-eaeb-4635-a5bf-7d1fa15cee16)
+
+## Poster
+![image](https://github.com/user-attachments/assets/bf1ec2f0-556a-4207-badd-cfb43b277d1a)
+
 
 # Git Convention
 
